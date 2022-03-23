@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <RestoreSources>https://nuget.repo.corsac.nl/v3/index.json;https://nuget.emzi0767.com/api/v3/index.json;https://api.nuget.org/v3/index.json</RestoreSources>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Ben.Demystifier" Version="0.4.1" />
+        <PackageReference Include="codeessentials.Extensions.Logging.Demystifier" Version="1.1.66" />
+        <PackageReference Include="DSharpPlus" Version="4.2.0-nightly-01099" />
+        <PackageReference Include="DSharpPlus.CommandsNext" Version="4.1.0" />
+        <PackageReference Include="Foxite.Common" Version="1.5.7" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.3" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="6.0.3" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="6.0.3" />
+    </ItemGroup>
+
+</Project>
