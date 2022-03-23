@@ -18,6 +18,6 @@ These are the commands:
 - delay
 - ignore
 
-Add highlighted terms using `add`. If anyone says one of those terms in any channel you have access to, and you haven't said anything for a certain amount of time (30 minutes by default, change using `delay`), the bot will DM you about it.
+Add highlighted terms using `add`. If anyone says one of those terms in any channel you have access to, and you haven't said anything for a certain amount of time (30 minutes by default, change using `delay`), the bot will DM you about it. Make sure you have server DMs enabled.
 
 If you want to ignore a specific channel you can use `ignore` followed by the mention of the channel.
