@@ -16,7 +16,7 @@ services:
         depends_on:
             - database
         networks:
-            - highlightbot
+            - highlightbot-network
 
 networks:
     highlightbot-network:
