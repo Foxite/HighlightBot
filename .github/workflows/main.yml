@@ -1,0 +1,22 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ master ]
+#  pull_request:
+#    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Publish Docker
+      uses: elgohr/Publish-Docker-Github-Action@3.04
+      with:
+        name: highlight-bot
+        context: HighlightBot
+        registry: ${{ secrets.REPO_URL }}
+        username: ${{ secrets.REPO_USER }}
+        password: ${{ secrets.REPO_PASSWD }}
+        default_branch: master
