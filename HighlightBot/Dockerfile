@@ -3,10 +3,9 @@ WORKDIR /app
 
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
-COPY ["HighlightBot/HighlightBot.csproj", "HighlightBot/"]
-RUN dotnet restore "HighlightBot/HighlightBot.csproj"
+COPY ["HighlightBot.csproj", "HighlightBot.csproj"]
+RUN dotnet restore "HighlightBot.csproj"
 COPY . .
-WORKDIR "/src/HighlightBot"
 RUN dotnet build "HighlightBot.csproj" -c Release -o /app/build
 
 FROM build AS publish

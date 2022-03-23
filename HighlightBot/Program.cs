@@ -1,5 +1,9 @@
-﻿using DSharpPlus;
+﻿using System.Diagnostics;
+using DSharpPlus;
 using DSharpPlus.CommandsNext;
+using DSharpPlus.CommandsNext.Exceptions;
+using DSharpPlus.Entities;
+using DSharpPlus.EventArgs;
 using Foxite.Common.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -27,7 +31,6 @@ public sealed class Program {
 	private static async Task Main(string[] args) {
 		using IHost host = CreateHostBuilder(args)
 			.ConfigureLogging((_, builder) => {
-				builder.AddSystemdConsole();
 				builder.AddExceptionDemystifyer();
 			})
 			.ConfigureServices((hbc, isc) => {
@@ -37,29 +40,26 @@ public sealed class Program {
 				isc.AddSingleton(isp => {
 					var clientConfig = new DiscordConfiguration {
 						Token = hbc.Configuration.GetSection("Discord").GetValue<string>("Token"),
-						Intents = DiscordIntents.All, // Not sure which one, but there is an intent that is necessary to get the permissions of any user.
+						Intents = DiscordIntents.GuildMessages | DiscordIntents.Guilds,
 						LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 						MinimumLogLevel = LogLevel.Information,
 						MessageCacheSize = 0
 					};
-					var commandsConfig = new CommandsNextConfiguration() {
-						
-					};
-
-					commandsConfig.Services = isp;
-					commandsConfig.EnableDms = false;
-					commandsConfig.EnableMentionPrefix = true;
 					
 					var client = new DiscordClient(clientConfig);
+					
+					var commandsConfig = new CommandsNextConfiguration {
+						Services = isp,
+						EnableDms = false,
+						EnableMentionPrefix = true,
+					};
+
 					client.UseCommandsNext(commandsConfig);
 
 					return client;
 				});
 				
-				isc.AddSingleton(isp => {
-				})
-
-				isc.AddSingleton<HttpClient>();
+				isc.AddSingleton(isp => isp.GetRequiredService<DiscordClient>().GetCommandsNext());
 
 				isc.ConfigureDbContext<HighlightDbContext>();
 
@@ -69,19 +69,22 @@ public sealed class Program {
 
 		Host = host;
 
-		await using (var dbContext = host.Services.GetRequiredService<FridgeDbContext>()) {
+		await using (var dbContext = host.Services.GetRequiredService<HighlightDbContext>()) {
 			await dbContext.Database.MigrateAsync();
 		}
 
-		var commands = host.Services.GetRequiredService<CommandService>();
-		commands.AddModule<FridgeCommandModule>();
-		commands.AddTypeParser(new ChannelParser());
-		commands.AddTypeParser(new DiscordEmojiParser());
+		var commands = host.Services.GetRequiredService<CommandsNextExtension>();
+		commands.RegisterCommands<HighlightCommandModule>();
+
+		commands.CommandErrored += (_, eventArgs) => {
+			return eventArgs.Exception switch {
+				CommandNotFoundException => eventArgs.Context.RespondAsync("Unknown command."),
+				ChecksFailedException => eventArgs.Context.RespondAsync("Checks failed 🙁"),
+				_ => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Exception while executing command", eventArgs.Exception).ContinueWith(t => eventArgs.Context.RespondAsync("Internal error; devs notified."))
+			};
+		};
 
 		var discord = host.Services.GetRequiredService<DiscordClient>();
-
-		discord.MessageReactionAdded += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, true);
-		discord.MessageReactionRemoved += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, false);
 
 		discord.MessageCreated += OnMessageCreatedAsync;
 
@@ -91,8 +94,105 @@ public sealed class Program {
 
 		await host.RunAsync();
 	}
-}
 
-public class HighlightDbContext : DbContext {
-	
+	private static readonly object m_DatabaseLock = new();
+
+	private static Task OnMessageCreatedAsync(DiscordClient discord, MessageCreateEventArgs e) {
+		if (e.Guild != null && !e.Author.IsBot) {
+			_ = Task.Run(async () => {
+				try {
+					List<UserIdAndTerm> allTerms;
+					lock (m_DatabaseLock) {
+						using var dbContext = Host.Services.GetRequiredService<HighlightDbContext>();
+						// Create a "fake" entity object and attach it to EF, then modify it and save the changes.
+						// This allows to update an entity without querying for it in the database.
+						// This is useful, because this function is expected to run a lot.
+						// Note that TODO we still need to implement in-memory caching for the database
+						// https://stackoverflow.com/a/58367364
+						var author = new HighlightUser() {
+							DiscordGuildId = e.Guild.Id,
+							DiscordUserId = e.Author.Id,
+						};
+						dbContext.Attach(author);
+						author.LastActivity = DateTime.UtcNow;
+
+						try {
+							dbContext.SaveChanges();
+						} catch (DbUpdateConcurrencyException) {
+							// Happens when the author does not have a user entry in the database, in which case we don't care.
+							// If it happens because the database was actually concurrently, we also don't care.
+						}
+
+						string content = e.Message.Content.ToLowerInvariant();
+						DateTime currentTime = DateTime.UtcNow;
+						allTerms = dbContext.Terms
+							.Where(term =>
+								term.User.DiscordGuildId == e.Guild.Id &&
+								term.User.DiscordUserId != e.Author.Id &&
+								term.User.LastActivity + term.User.HighlightDelay < currentTime &&
+								EF.Functions.Like(content, "%" + term.Value + "%") &&
+								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id))
+							.Select(term => new UserIdAndTerm() {
+								Value = term.Value,
+								DiscordUserId = term.User.DiscordUserId
+							})
+							.ToList();
+					}
+
+					DiscordGuild guild = discord.Guilds[e.Guild.Id];
+					var sender = (DiscordMember) e.Author;
+					IReadOnlyList<DiscordMessage> lastMessages = await e.Channel.GetMessagesBeforeAsync(e.Message.Id + 1, 5);
+
+					var notificationEmbed = new DiscordEmbedBuilder() {
+						Author = new DiscordEmbedBuilder.EmbedAuthor() {
+							IconUrl = sender.GuildAvatarUrl ?? sender.AvatarUrl,
+							Name = sender.DisplayName
+						},
+						Color = new Optional<DiscordColor>(DiscordColor.Yellow),
+						Description = string.Join('\n', lastMessages.Select(message => $"{Formatter.Bold($"[{message.CreationTimestamp.ToUniversalTime():T}] {(message.Author as DiscordMember)?.DisplayName ?? message.Author.Username}:")} {message.Content.Ellipsis(500)}")),
+						Timestamp = DateTimeOffset.UtcNow,
+					};
+					notificationEmbed = notificationEmbed
+						.AddField("Source message", $"{Formatter.MaskedUrl("Jump to", e.Message.JumpLink)}");
+
+					foreach (IGrouping<ulong, string> grouping in allTerms.GroupBy(userIdAndTerm => userIdAndTerm.DiscordUserId, userIdAndTerm => userIdAndTerm.Value)) {
+						DiscordMember? target = await guild.GetMemberAsync(grouping.Key);
+						if (target == null) {
+							continue;
+						}
+
+						Permissions targetPermissions = target.PermissionsIn(e.Channel);
+						if ((targetPermissions & Permissions.AccessChannels) == 0 || (targetPermissions & Permissions.ReadMessageHistory) == 0) {
+							continue;
+						}
+
+						List<string> terms = grouping.ToList();
+						await target.SendMessageAsync(
+							new DiscordMessageBuilder() {
+								Content = $"In {Formatter.Bold(guild.Name)} {e.Channel.Mention}, you were mentioned with the highlighted word{(terms.Count > 1 ? "s" : "")} {Util.JoinOxfordComma(terms)}",
+								Embed = notificationEmbed
+							}
+						);
+					}
+				} catch (Exception ex) {
+					string errorMessage =
+						"Exception in OnMessageCreated\n" +
+						$"{e.Author.Id} ({e.Author.Username}#{e.Author.Discriminator}), bot: {e.Author.IsBot}\n" +
+					    $"message: {e.Message.Id} ({e.Message.JumpLink}), type: {e.Message.MessageType?.ToString() ?? "(null)"}, webhook: {e.Message.WebhookMessage}\n" +
+					    $"channel {e.Channel.Id} ({e.Channel.Name})\n" +
+					    (e.Channel.Guild != null ? $"guild {e.Channel.Guild.Id} ({e.Channel.Guild.Name})" : "");
+					Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, errorMessage);
+					await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
+				}
+			});
+		}
+
+		return Task.CompletedTask;
+	}
+
+	private class UserIdAndTerm {
+		// Would use an anonymous class here but that requires you to use "var", which prevents you from declaring the variable somewhere else.
+		public ulong DiscordUserId { get; set; }
+		public string Value { get; set; }
+	}
 }

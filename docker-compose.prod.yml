@@ -1,0 +1,25 @@
+version: "3.3"
+
+services:
+    database:
+        image: "postgres:13.3"
+        env_file:
+            - postgres.env
+        networks:
+            - highlightbot-network
+        volumes:
+            - database-data:/var/lib/postgresql/data/ # persist data even if container shuts down
+    bot:
+        build: HighlightBot
+        env_file:
+            - highlightbot.env
+        depends_on:
+            - database
+        networks:
+            - highlightbot
+
+networks:
+    highlightbot-network:
+
+volumes:
+    database-data: # named volumes can be managed easier using docker-compose
