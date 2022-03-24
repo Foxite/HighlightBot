@@ -4,6 +4,7 @@ using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Exceptions;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+using Foxite.Common;
 using Foxite.Common.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -31,6 +32,7 @@ public sealed class Program {
 	private static async Task Main(string[] args) {
 		using IHost host = CreateHostBuilder(args)
 			.ConfigureLogging((_, builder) => {
+				builder.AddSystemdConsole();
 				builder.AddExceptionDemystifyer();
 			})
 			.ConfigureServices((hbc, isc) => {
@@ -43,7 +45,6 @@ public sealed class Program {
 						Intents = DiscordIntents.GuildMessages | DiscordIntents.Guilds,
 						LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 						MinimumLogLevel = LogLevel.Information,
-						MessageCacheSize = 0
 					};
 					
 					var client = new DiscordClient(clientConfig);
@@ -80,7 +81,7 @@ public sealed class Program {
 			return eventArgs.Exception switch {
 				CommandNotFoundException => eventArgs.Context.RespondAsync("Unknown command."),
 				ChecksFailedException => eventArgs.Context.RespondAsync("Checks failed 🙁"),
-				_ => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Exception while executing command", eventArgs.Exception).ContinueWith(t => eventArgs.Context.RespondAsync("Internal error; devs notified."))
+				_ => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync("Exception while executing command", eventArgs.Exception).ContinueWith(t => eventArgs.Context.RespondAsync("Internal error; devs notified."))
 			};
 		};
 
@@ -130,7 +131,7 @@ public sealed class Program {
 								term.User.DiscordGuildId == e.Guild.Id &&
 								term.User.DiscordUserId != e.Author.Id &&
 								term.User.LastActivity + term.User.HighlightDelay < currentTime &&
-								EF.Functions.Like(content, "%" + term.Value + "%") &&
+								EF.Functions.Like(content, "%" + term.Value + "%") && // TODO escape pattern
 								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id))
 							.Select(term => new UserIdAndTerm() {
 								Value = term.Value,
@@ -156,31 +157,38 @@ public sealed class Program {
 						.AddField("Source message", $"{Formatter.MaskedUrl("Jump to", e.Message.JumpLink)}");
 
 					foreach (IGrouping<ulong, string> grouping in allTerms.GroupBy(userIdAndTerm => userIdAndTerm.DiscordUserId, userIdAndTerm => userIdAndTerm.Value)) {
-						DiscordMember? target = await guild.GetMemberAsync(grouping.Key);
-						if (target == null) {
-							continue;
-						}
-
-						Permissions targetPermissions = target.PermissionsIn(e.Channel);
-						if ((targetPermissions & Permissions.AccessChannels) == 0 || (targetPermissions & Permissions.ReadMessageHistory) == 0) {
-							continue;
-						}
-
-						List<string> terms = grouping.ToList();
-						await target.SendMessageAsync(
-							new DiscordMessageBuilder() {
-								Content = $"In {Formatter.Bold(guild.Name)} {e.Channel.Mention}, you were mentioned with the highlighted word{(terms.Count > 1 ? "s" : "")} {Util.JoinOxfordComma(terms)}",
-								Embed = notificationEmbed
+						DiscordMember? target = null;
+						try {
+							target = await guild.GetMemberAsync(grouping.Key);
+							if (target == null) {
+								continue;
 							}
-						);
+
+							Permissions targetPermissions = target.PermissionsIn(e.Channel);
+							if ((targetPermissions & Permissions.AccessChannels) == 0 || (targetPermissions & Permissions.ReadMessageHistory) == 0) {
+								continue;
+							}
+
+							List<string> terms = grouping.ToList();
+							await target.SendMessageAsync(
+								new DiscordMessageBuilder() {
+									Content = $"In {Formatter.Bold(guild.Name)} {e.Channel.Mention}, you were mentioned with the highlighted word{(terms.Count > 1 ? "s" : "")} {Util.JoinOxfordComma(terms)}",
+									Embed = notificationEmbed
+								}
+							);
+						} catch (Exception ex) {
+							FormattableString errorMessage = $"Couldn't DM {grouping.Key} ({target?.Username}#{target?.Discriminator})";
+							Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, errorMessage);
+							await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
+						}
 					}
 				} catch (Exception ex) {
-					string errorMessage =
-						"Exception in OnMessageCreated\n" +
-						$"{e.Author.Id} ({e.Author.Username}#{e.Author.Discriminator}), bot: {e.Author.IsBot}\n" +
-					    $"message: {e.Message.Id} ({e.Message.JumpLink}), type: {e.Message.MessageType?.ToString() ?? "(null)"}, webhook: {e.Message.WebhookMessage}\n" +
-					    $"channel {e.Channel.Id} ({e.Channel.Name})\n" +
-					    (e.Channel.Guild != null ? $"guild {e.Channel.Guild.Id} ({e.Channel.Guild.Name})" : "");
+					FormattableString errorMessage =
+						@$"Exception in OnMessageCreated
+{e.Author.Id} ({e.Author.Username}#{e.Author.Discriminator}), bot: {e.Author.IsBot}
+message: {e.Message.Id} ({e.Message.JumpLink}), type: {e.Message.MessageType?.ToString() ?? "(null)"}, webhook: {e.Message.WebhookMessage}
+channel {e.Channel.Id} ({e.Channel.Name})\n
+{(e.Channel.Guild != null ? $"guild {e.Channel.Guild.Id} ({e.Channel.Guild.Name})" : "")}";
 					Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, errorMessage);
 					await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
 				}

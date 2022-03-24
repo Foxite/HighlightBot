@@ -76,7 +76,7 @@ public class HighlightCommandModule : BaseCommandModule {
 		string[] lines = terms.Split("\n");
 		foreach (string line in lines) {
 			user.Terms.Add(new HighlightTerm() {
-				Value = line
+				Value = line.ToLower()
 			});
 		}
 
@@ -88,7 +88,7 @@ public class HighlightCommandModule : BaseCommandModule {
 		});
 	}
 
-	[Command("rm")]
+	[Command("remove"), Aliases("rm")]
 	public async Task RemoveHighlights(CommandContext context, string highlight) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
