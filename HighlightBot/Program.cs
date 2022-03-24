@@ -32,7 +32,6 @@ public sealed class Program {
 	private static async Task Main(string[] args) {
 		using IHost host = CreateHostBuilder(args)
 			.ConfigureLogging((_, builder) => {
-				builder.AddSystemdConsole();
 				builder.AddExceptionDemystifyer();
 			})
 			.ConfigureServices((hbc, isc) => {

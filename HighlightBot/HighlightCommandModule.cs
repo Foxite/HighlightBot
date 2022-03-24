@@ -87,8 +87,13 @@ public class HighlightCommandModule : BaseCommandModule {
 
 		await DbContext.SaveChangesAsync();
 
+		string message = $"Added {added} highlight{(lines.Length == 1 ? "" : "s")}";
+		if (added != lines.Length) {
+			message += "\nNote: some words were already being highlighted.";
+		}
+
 		await context.RespondAsync(dmb => {
-			dmb.WithContent($"Added {lines.Length} highlight{(lines.Length == 1 ? "" : "s")}");
+			dmb.WithContent(message);
 			AddEmbedOfTrackedTerms(user, dmb);
 		});
 	}
@@ -119,7 +124,7 @@ public class HighlightCommandModule : BaseCommandModule {
 		await DbContext.SaveChangesAsync();
 
 		if (user.Terms.Count == 0) {
-			await context.RespondAsync($"You're not tracking any terms yet, but when you add them, I will notify you if anyone says them and you've been inactive for {minutes} minute{(minutes == 1 ? "" : "s")}.");
+			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will notify you if anyone says them and you've been inactive for {minutes} minute{(minutes == 1 ? "" : "s")}.");
 		} else {
 			await context.RespondAsync($"I will notify you if anyone says one of your highlights and you've been inactive for {minutes} minute{(minutes == 1 ? "" : "s")}.");
 		}
@@ -141,7 +146,7 @@ public class HighlightCommandModule : BaseCommandModule {
 		await DbContext.SaveChangesAsync();
 
 		if (user.Terms.Count == 0) {
-			await context.RespondAsync($"You're not tracking any terms yet, but when you add them, I will {(existingEntry == null ? "not notify you" : "now notify you again")} if someone says them in {channel.Mention}");
+			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(existingEntry == null ? "not notify you" : "now notify you again")} if someone says them in {channel.Mention}");
 		} else {
 			await context.RespondAsync($"I will {(existingEntry == null ? "not notify you anymore" : "now notify you again")} if anyone says one of your highlights in {channel.Mention}.");
 		}
