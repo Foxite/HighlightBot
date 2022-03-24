@@ -74,10 +74,15 @@ public class HighlightCommandModule : BaseCommandModule {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
 		string[] lines = terms.Split("\n");
-		foreach (string line in lines) {
-			user.Terms.Add(new HighlightTerm() {
-				Value = line.ToLower()
-			});
+		int added = 0;
+		foreach (string line_ in lines) {
+			string line = line_.ToLower();
+			if (!user.Terms.Any(term => term.Value == line)) {
+				added++;
+				user.Terms.Add(new HighlightTerm() {
+					Value = line.ToLower()
+				});
+			}
 		}
 
 		await DbContext.SaveChangesAsync();
