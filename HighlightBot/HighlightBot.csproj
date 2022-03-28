@@ -15,8 +15,8 @@
     <ItemGroup>
         <PackageReference Include="Ben.Demystifier" Version="0.4.1" />
         <PackageReference Include="codeessentials.Extensions.Logging.Demystifier" Version="1.1.66" />
-        <PackageReference Include="DSharpPlus" Version="4.2.0-nightly-01099" />
-        <PackageReference Include="DSharpPlus.CommandsNext" Version="4.1.0" />
+        <PackageReference Include="DSharpPlus" Version="4.2.0-nightly-01102" />
+        <PackageReference Include="DSharpPlus.CommandsNext" Version="4.2.0-nightly-01102" />
         <PackageReference Include="Foxite.Common" Version="1.7.0" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.3" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.3">
