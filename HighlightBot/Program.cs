@@ -149,7 +149,7 @@ public sealed class Program {
 							Name = sender.DisplayName
 						},
 						Color = new Optional<DiscordColor>(DiscordColor.Yellow),
-						Description = string.Join('\n', lastMessages.Select(message => $"{Formatter.Bold($"[{message.CreationTimestamp.ToUniversalTime():T}] {(message.Author as DiscordMember)?.DisplayName ?? message.Author.Username}:")} {message.Content.Ellipsis(500)}")),
+						Description = string.Join('\n', lastMessages.Backwards().Select(message => $"{Formatter.Bold($"[{message.CreationTimestamp.ToUniversalTime():T}] {(message.Author as DiscordMember)?.DisplayName ?? message.Author.Username}:")} {message.Content.Ellipsis(500)}")),
 						Timestamp = DateTimeOffset.UtcNow,
 					};
 					notificationEmbed = notificationEmbed
