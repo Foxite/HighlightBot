@@ -3,4 +3,5 @@
 .vs
 .idea
 *.env
+**/appsettings.json
 
