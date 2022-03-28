@@ -127,17 +127,18 @@ public sealed class Program {
 						string content = e.Message.Content.ToLowerInvariant();
 						DateTime currentTime = DateTime.UtcNow;
 						allTerms = dbContext.Terms
-								/*
 							.Include(term => term.User)
 							.ThenInclude(user => user.IgnoredChannels)
-							.AsEnumerable()//*/
 							.Where(term =>
 								term.User.DiscordGuildId == e.Guild.Id &&
 								term.User.DiscordUserId != e.Author.Id &&
 								term.User.LastActivity + term.User.HighlightDelay < currentTime &&
-								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id) &&
-								Regex.IsMatch(content, term.Regex, RegexOptions.IgnoreCase)
+								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id)
 							)
+							.AsEnumerable()
+							// TODO TEMPORARY HACK! this does not scale.
+							// Find a way to get PCRE regexes going in the database (postgres seems to use POSIX regexes)
+							.Where(term => Regex.IsMatch(content, term.Regex, RegexOptions.IgnoreCase))
 							.Select(term => new UserIdAndTerm() {
 								Value = term.Display,
 								DiscordUserId = term.User.DiscordUserId

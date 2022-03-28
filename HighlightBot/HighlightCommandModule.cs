@@ -84,7 +84,7 @@ public class HighlightCommandModule : BaseCommandModule {
 				pattern = line[1..^1];
 				display = $"`{line}`";
 			} else {
-				pattern = $@"\b{line.ToLower()}\b";
+				pattern = $@"\b{Regex.Escape(line.ToLower())}\b";
 				display = line;
 			}
 			if (!user.Terms.Any(term => term.Regex == pattern)) {
