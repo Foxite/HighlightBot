@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
@@ -36,7 +37,7 @@ public class HighlightCommandModule : BaseCommandModule {
 		DiscordEmbedBuilder embed = new DiscordEmbedBuilder()
 			.WithTitle("You're currently tracking the following words")
 			.WithColor(DiscordColor.Yellow)
-			.WithDescription(string.Join("\n", user.Terms.Select(term => term.Value)))
+			.WithDescription(string.Join("\n", user.Terms.Select(term => term.Display)))
 			.AddField("Highlight Delay", user.HighlightDelay.TotalHours >= 1 ? user.HighlightDelay.ToString(@"h\:mm\:ss") : user.HighlightDelay.ToString(@"m\:ss"));
 
 		if (user.IgnoredChannels.Count > 0) {
@@ -76,12 +77,21 @@ public class HighlightCommandModule : BaseCommandModule {
 
 		string[] lines = terms.Split("\n");
 		int added = 0;
-		foreach (string line_ in lines) {
-			string line = line_.ToLower();
-			if (!user.Terms.Any(term => term.Value == line)) {
+		foreach (string line in lines) {
+			string pattern;
+			string display;
+			if (line.StartsWith('/') && line.EndsWith('/')) {
+				pattern = line[1..^1];
+				display = $"`{line}`";
+			} else {
+				pattern = $@"\b{line.ToLower()}\b";
+				display = line;
+			}
+			if (!user.Terms.Any(term => term.Regex == pattern)) {
 				added++;
 				user.Terms.Add(new HighlightTerm() {
-					Value = line.ToLower()
+					Display = display,
+					Regex = pattern
 				});
 			}
 		}
@@ -105,16 +115,24 @@ public class HighlightCommandModule : BaseCommandModule {
 		if (user == null || user.Terms.Count == 0) {
 			await context.RespondAsync("You're not tracking any words.");
 		} else {
-			HighlightTerm? term = user.Terms.FirstOrDefault(term => term.Value == highlight);
+			if (highlight.StartsWith('/') && highlight.EndsWith('/')) {
+				highlight = $"`{highlight}`";
+			}
+			HighlightTerm? term = user.Terms.FirstOrDefault(term => term.Display == highlight);
+			string content;
 			if (term != null) {
 				user.Terms.Remove(term);
 				await DbContext.SaveChangesAsync();
+				content = "Deleted the highlight: " + highlight;
 			} else {
-				await context.RespondAsync(dmb => dmb
-					.WithContent("Deleted the highlight: " + highlight)
-					.WithAllowedMentions(Mentions.None)
-				);
+				content = $"You are not tracking {highlight}.";
 			}
+			await context.RespondAsync(dmb => {
+				dmb
+					.WithContent(content)
+					.WithAllowedMentions(Mentions.None);
+				AddEmbedOfTrackedTerms(user, dmb);
+			});
 		}
 	}
 

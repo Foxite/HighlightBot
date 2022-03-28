@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text.RegularExpressions;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Exceptions;
@@ -59,7 +60,8 @@ public sealed class Program {
 					return client;
 				});
 				
-				isc.AddSingleton(isp => isp.GetRequiredService<DiscordClient>().GetCommandsNext());
+				// If you include this, an exception occurs while disposing it. If the app is crashing, the original exception will be eaten.
+				//isc.AddSingleton(isp => isp.GetRequiredService<DiscordClient>().GetCommandsNext());
 
 				isc.ConfigureDbContext<HighlightDbContext>();
 
@@ -73,7 +75,8 @@ public sealed class Program {
 			await dbContext.Database.MigrateAsync();
 		}
 
-		var commands = host.Services.GetRequiredService<CommandsNextExtension>();
+		var discord = host.Services.GetRequiredService<DiscordClient>();
+		var commands = discord.GetCommandsNext();
 		commands.RegisterCommands<HighlightCommandModule>();
 
 		commands.CommandErrored += (_, eventArgs) => {
@@ -83,8 +86,6 @@ public sealed class Program {
 				_ => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync("Exception while executing command", eventArgs.Exception).ContinueWith(t => eventArgs.Context.RespondAsync("Internal error; devs notified."))
 			};
 		};
-
-		var discord = host.Services.GetRequiredService<DiscordClient>();
 
 		discord.MessageCreated += OnMessageCreatedAsync;
 
@@ -126,14 +127,19 @@ public sealed class Program {
 						string content = e.Message.Content.ToLowerInvariant();
 						DateTime currentTime = DateTime.UtcNow;
 						allTerms = dbContext.Terms
+								/*
+							.Include(term => term.User)
+							.ThenInclude(user => user.IgnoredChannels)
+							.AsEnumerable()//*/
 							.Where(term =>
 								term.User.DiscordGuildId == e.Guild.Id &&
 								term.User.DiscordUserId != e.Author.Id &&
 								term.User.LastActivity + term.User.HighlightDelay < currentTime &&
-								EF.Functions.Like(content, "%" + term.Value + "%") && // TODO escape pattern
-								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id))
+								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id) &&
+								Regex.IsMatch(content, term.Regex, RegexOptions.IgnoreCase)
+							)
 							.Select(term => new UserIdAndTerm() {
-								Value = term.Value,
+								Value = term.Display,
 								DiscordUserId = term.User.DiscordUserId
 							})
 							.ToList();

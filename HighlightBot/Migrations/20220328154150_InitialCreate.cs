@@ -24,13 +24,34 @@ namespace HighlightBot.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "HighlightUserIgnoredChannel",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserDiscordGuildId = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    UserDiscordUserId = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    ChannelId = table.Column<decimal>(type: "numeric(20,0)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_HighlightUserIgnoredChannel", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_HighlightUserIgnoredChannel_Users_UserDiscordGuildId_UserDi~",
+                        columns: x => new { x.UserDiscordGuildId, x.UserDiscordUserId },
+                        principalTable: "Users",
+                        principalColumns: new[] { "DiscordGuildId", "DiscordUserId" },
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Terms",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     user_serverid = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
                     user_userid = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
-                    Value = table.Column<string>(type: "text", nullable: false)
+                    Regex = table.Column<string>(type: "text", nullable: false),
+                    Display = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -44,6 +65,11 @@ namespace HighlightBot.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_HighlightUserIgnoredChannel_UserDiscordGuildId_UserDiscordU~",
+                table: "HighlightUserIgnoredChannel",
+                columns: new[] { "UserDiscordGuildId", "UserDiscordUserId" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Terms_user_serverid_user_userid",
                 table: "Terms",
                 columns: new[] { "user_serverid", "user_userid" });
@@ -51,6 +77,9 @@ namespace HighlightBot.Migrations
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "HighlightUserIgnoredChannel");
+
             migrationBuilder.DropTable(
                 name: "Terms");
 

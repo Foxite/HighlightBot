@@ -28,7 +28,11 @@ namespace HighlightBot.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Value")
+                    b.Property<string>("Display")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Regex")
                         .IsRequired()
                         .HasColumnType("text");
 

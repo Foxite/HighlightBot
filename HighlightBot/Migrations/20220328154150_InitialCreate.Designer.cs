@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HighlightBot.Migrations
 {
     [DbContext(typeof(HighlightDbContext))]
-    [Migration("20220323160144_InitialCreate")]
+    [Migration("20220328154150_InitialCreate")]
     partial class InitialCreate
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -30,7 +30,11 @@ namespace HighlightBot.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Value")
+                    b.Property<string>("Display")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Regex")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -66,6 +70,28 @@ namespace HighlightBot.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("HighlightBot.HighlightUserIgnoredChannel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ChannelId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("UserDiscordGuildId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("UserDiscordUserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserDiscordGuildId", "UserDiscordUserId");
+
+                    b.ToTable("HighlightUserIgnoredChannel");
+                });
+
             modelBuilder.Entity("HighlightBot.HighlightTerm", b =>
                 {
                     b.HasOne("HighlightBot.HighlightUser", "User")
@@ -77,8 +103,21 @@ namespace HighlightBot.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("HighlightBot.HighlightUserIgnoredChannel", b =>
+                {
+                    b.HasOne("HighlightBot.HighlightUser", "User")
+                        .WithMany("IgnoredChannels")
+                        .HasForeignKey("UserDiscordGuildId", "UserDiscordUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("HighlightBot.HighlightUser", b =>
                 {
+                    b.Navigation("IgnoredChannels");
+
                     b.Navigation("Terms");
                 });
 #pragma warning restore 612, 618
