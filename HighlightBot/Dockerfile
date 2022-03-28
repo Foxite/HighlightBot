@@ -6,6 +6,7 @@ WORKDIR /src
 COPY ["HighlightBot.csproj", "HighlightBot.csproj"]
 RUN dotnet restore "HighlightBot.csproj"
 COPY . .
+RUN mv appsettings.json.example appsettings.json
 RUN dotnet build "HighlightBot.csproj" -c Release -o /app/build
 
 FROM build AS publish
