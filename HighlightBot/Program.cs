@@ -41,7 +41,7 @@ public sealed class Program {
 				isc.AddSingleton(isp => {
 					var clientConfig = new DiscordConfiguration {
 						Token = hbc.Configuration.GetSection("Discord").GetValue<string>("Token"),
-						Intents = DiscordIntents.GuildMessages | DiscordIntents.Guilds | DiscordIntents.GuildMembers,
+						Intents = DiscordIntents.GuildMessages | DiscordIntents.Guilds,
 						LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 						MinimumLogLevel = LogLevel.Information,
 					};
@@ -182,7 +182,6 @@ public sealed class Program {
 						}
 					}
 				} catch (Exception ex) {
-					DiscordMember
 					FormattableString errorMessage =
 						@$"Exception in OnMessageCreated
 {e.Author.Id} ({e.Author.Username}#{e.Author.Discriminator}), bot: {e.Author.IsBot}
