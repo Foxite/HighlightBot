@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HighlightBot;
 
+[ModuleLifespan(ModuleLifespan.Transient)]
 public class HighlightCommandModule : BaseCommandModule {
 	public HighlightDbContext DbContext { get; set; }
 
