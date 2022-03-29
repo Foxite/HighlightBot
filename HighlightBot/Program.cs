@@ -5,6 +5,7 @@ using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Exceptions;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+using DSharpPlus.Exceptions;
 using Foxite.Common;
 using Foxite.Common.Notifications;
 using Microsoft.EntityFrameworkCore;
@@ -146,46 +147,52 @@ public sealed class Program {
 							.ToList();
 					}
 
-					DiscordGuild guild = discord.Guilds[e.Guild.Id];
-					var sender = (DiscordMember) e.Author;
-					IReadOnlyList<DiscordMessage> lastMessages = await e.Channel.GetMessagesBeforeAsync(e.Message.Id + 1, 5);
+					if (allTerms.Count > 0) {
+						DiscordGuild guild = discord.Guilds[e.Guild.Id];
+						var sender = (DiscordMember) e.Author;
+						IReadOnlyList<DiscordMessage> lastMessages = await e.Channel.GetMessagesBeforeAsync(e.Message.Id + 1, 5); // Maybe use the message cache here?
 
-					var notificationEmbed = new DiscordEmbedBuilder() {
-						Author = new DiscordEmbedBuilder.EmbedAuthor() {
-							IconUrl = sender.GuildAvatarUrl ?? sender.AvatarUrl,
-							Name = sender.DisplayName
-						},
-						Color = new Optional<DiscordColor>(DiscordColor.Yellow),
-						Description = string.Join('\n', lastMessages.Backwards().Select(message => $"{Formatter.Bold($"[{message.CreationTimestamp.ToUniversalTime():T}] {(message.Author as DiscordMember)?.DisplayName ?? message.Author.Username}:")} {message.Content.Ellipsis(500)}")),
-						Timestamp = DateTimeOffset.UtcNow,
-					};
-					notificationEmbed = notificationEmbed
-						.AddField("Source message", $"{Formatter.MaskedUrl("Jump to", e.Message.JumpLink)}");
+						var notificationEmbed = new DiscordEmbedBuilder() {
+							Author = new DiscordEmbedBuilder.EmbedAuthor() {
+								IconUrl = sender.GuildAvatarUrl ?? sender.AvatarUrl,
+								Name = sender.DisplayName
+							},
+							Color = new Optional<DiscordColor>(DiscordColor.Yellow),
+							Description = string.Join('\n', lastMessages.Backwards().Select(message => $"{Formatter.Bold($"[{message.CreationTimestamp.ToUniversalTime():T}] {(message.Author as DiscordMember)?.DisplayName ?? message.Author.Username}:")} {message.Content.Ellipsis(500)}")),
+							Timestamp = DateTimeOffset.UtcNow,
+						};
+						notificationEmbed = notificationEmbed
+							.AddField("Source message", $"{Formatter.MaskedUrl("Jump to", e.Message.JumpLink)}");
 
-					foreach (IGrouping<ulong, string> grouping in allTerms.GroupBy(userIdAndTerm => userIdAndTerm.DiscordUserId, userIdAndTerm => userIdAndTerm.Value)) {
-						DiscordMember? target = null;
-						try {
-							target = await guild.GetMemberAsync(grouping.Key);
-							if (target == null) {
-								continue;
-							}
-
-							Permissions targetPermissions = target.PermissionsIn(e.Channel);
-							if ((targetPermissions & Permissions.AccessChannels) == 0 || (targetPermissions & Permissions.ReadMessageHistory) == 0) {
-								continue;
-							}
-
-							List<string> terms = grouping.ToList();
-							await target.SendMessageAsync(
-								new DiscordMessageBuilder() {
-									Content = $"In {Formatter.Bold(guild.Name)} {e.Channel.Mention}, you were mentioned with the highlighted word{(terms.Count > 1 ? "s" : "")} {Util.JoinOxfordComma(terms)}",
-									Embed = notificationEmbed
+						foreach (IGrouping<ulong, string> grouping in allTerms.GroupBy(userIdAndTerm => userIdAndTerm.DiscordUserId, userIdAndTerm => userIdAndTerm.Value)) {
+							DiscordMember? target = null;
+							try {
+								target = await guild.GetMemberAsync(grouping.Key);
+								if (target == null) {
+									continue;
 								}
-							);
-						} catch (Exception ex) {
-							FormattableString errorMessage = $"Couldn't DM {grouping.Key} ({target?.Username}#{target?.Discriminator})";
-							Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, errorMessage);
-							await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
+
+								Permissions targetPermissions = target.PermissionsIn(e.Channel);
+								if ((targetPermissions & Permissions.AccessChannels) == 0 || (targetPermissions & Permissions.ReadMessageHistory) == 0) {
+									continue;
+								}
+
+								List<string> terms = grouping.ToList();
+								await target.SendMessageAsync(
+									new DiscordMessageBuilder() {
+										Content = $"In {Formatter.Bold(guild.Name)} {e.Channel.Mention}, you were mentioned with the highlighted word{(terms.Count > 1 ? "s" : "")} {Util.JoinOxfordComma(terms)}",
+										Embed = notificationEmbed
+									}
+								);
+							} catch (Exception ex) {
+								if (ex is UnauthorizedException) {
+									// User blocked bot or does not allow DMs, either way, don't care
+									continue;
+								}
+								FormattableString errorMessage = $"Couldn't DM {grouping.Key} ({target?.Username}#{target?.Discriminator})";
+								Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, errorMessage);
+								await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
+							}
 						}
 					}
 				} catch (Exception ex) {
