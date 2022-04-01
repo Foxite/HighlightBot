@@ -110,7 +110,7 @@ public class HighlightCommandModule : BaseCommandModule {
 	}
 
 	[Command("remove"), Aliases("rm")]
-	public async Task RemoveHighlights(CommandContext context, string highlight) {
+	public async Task RemoveHighlights(CommandContext context, [RemainingText] string highlight) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
 			await context.RespondAsync("You're not tracking any words.");
