@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
@@ -34,19 +35,33 @@ public class HighlightCommandModule : BaseCommandModule {
 	}
 
 	private static void AddEmbedOfTrackedTerms(HighlightUser user, DiscordMessageBuilder dmb) {
-		DiscordEmbedBuilder embed = new DiscordEmbedBuilder()
-			.WithTitle("You're currently tracking the following words")
-			.WithColor(DiscordColor.Yellow)
-			.WithDescription(string.Join("\n", user.Terms.Select(term => term.Display)))
-			.AddField("Highlight Delay", user.HighlightDelay.TotalHours >= 1 ? user.HighlightDelay.ToString(@"h\:mm\:ss") : user.HighlightDelay.ToString(@"m\:ss"));
+		if (user.Terms.Count > 0) {
+			DiscordEmbedBuilder embed = new DiscordEmbedBuilder()
+				.WithTitle("You're currently tracking the following terms")
+				.WithColor(DiscordColor.Yellow);
 
-		if (user.IgnoredChannels.Count > 0) {
-			embed.AddField("Ignored Channels", string.Join("\n", user.IgnoredChannels.Select(huic => "<#" + huic.ChannelId + ">")));
+			List<HighlightTerm> words = user.Terms.Where(term => !term.Display.StartsWith('`')).ToList();
+			List<HighlightTerm> regexes = user.Terms.Where(term => term.Display.StartsWith('`')).ToList();
+			if (words.Count > 0) {
+				embed.AddField("Words", string.Join("\n", words.Select(term => term.Display)));
+			}
+
+			if (regexes.Count > 0) {
+				embed.AddField("Regexes", string.Join("\n", regexes.Select(term => term.Display)));
+			}
+
+			if (user.IgnoredChannels.Count > 0) {
+				embed.AddField("Ignored Channels", string.Join("\n", user.IgnoredChannels.Select(huic => "<#" + huic.ChannelId + ">")));
+			}
+			
+			embed
+				.AddField("Highlight Delay", user.HighlightDelay.TotalHours >= 1 ? user.HighlightDelay.ToString(@"h\:mm\:ss") : user.HighlightDelay.ToString(@"m\:ss"))
+				.AddField("To add a new regex:", "Surround a term with `/slashes/`");
+
+			dmb
+				.WithEmbed(embed)
+				.WithAllowedMentions(Mentions.None);
 		}
-
-		dmb
-			.WithEmbed(embed)
-			.WithAllowedMentions(Mentions.None);
 	}
 	
 	[Command("show")]
