@@ -1,9 +1,10 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-namespace HighlightBot; 
+namespace HighlightBot;
 
 public static class Util {
 	public static IServiceCollection ConfigureDbContext<TDbContext>(this IServiceCollection isc) where TDbContext : DbContext {
@@ -37,7 +38,7 @@ public static class Util {
 			}
 
 			ret.Append(str);
-			
+
 			i++;
 		}
 
@@ -51,5 +52,20 @@ public static class Util {
 		} else {
 			return str;
 		}
+	}
+
+	// https://stackoverflow.com/a/1775017
+	public static bool IsValidRegex(string pattern) {
+		if (string.IsNullOrWhiteSpace(pattern)) {
+			return false;
+		}
+
+		try {
+			_ = Regex.IsMatch("", pattern);
+		} catch (ArgumentException) {
+			return false;
+		}
+
+		return true;
 	}
 }

@@ -82,9 +82,20 @@ public class HighlightCommandModule : BaseCommandModule {
 			string display;
 			if (line.StartsWith('/') && line.EndsWith('/')) {
 				pattern = line[1..^1];
+
+				if (!Util.IsValidRegex(pattern)) {
+					await context.RespondAsync("Invalid regex 🙁");
+					return;
+				}
+				
 				display = $"`{line}`";
 			} else {
 				pattern = $@"\b{Regex.Escape(line.ToLower())}\b";
+
+				if (!Util.IsValidRegex(pattern)) {
+					throw new Exception("Escaped pattern is not valid: " + pattern);
+				}
+				
 				display = line;
 			}
 			if (!user.Terms.Any(term => term.Regex == pattern)) {
