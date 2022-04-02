@@ -84,6 +84,7 @@ public sealed class Program {
 			return eventArgs.Exception switch {
 				CommandNotFoundException => eventArgs.Context.RespondAsync("Unknown command."),
 				ChecksFailedException => eventArgs.Context.RespondAsync("Checks failed 🙁"),
+				ArgumentException { Message: "Could not find a suitable overload for the command." } => eventArgs.Context.RespondAsync("Invalid arguments."),
 				_ => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync("Exception while executing command", eventArgs.Exception).ContinueWith(t => eventArgs.Context.RespondAsync("Internal error; devs notified."))
 			};
 		};
