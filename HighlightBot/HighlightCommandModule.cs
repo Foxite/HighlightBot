@@ -98,7 +98,7 @@ public class HighlightCommandModule : BaseCommandModule {
 
 		await DbContext.SaveChangesAsync();
 
-		string message = $"Added {added} highlight{(lines.Length == 1 ? "" : "s")}";
+		string message = $"Added {added} highlight{(added == 1 ? "" : "s")}";
 		if (added != lines.Length) {
 			message += "\nNote: some words were already being highlighted.";
 		}
