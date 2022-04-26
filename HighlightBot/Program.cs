@@ -46,6 +46,7 @@ public sealed class Program {
 						Intents = DiscordIntents.GuildMessages | DiscordIntents.Guilds,
 						LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 						MinimumLogLevel = LogLevel.Information,
+						AlwaysCacheMembers = false
 					};
 					
 					var client = new DiscordClient(clientConfig);
