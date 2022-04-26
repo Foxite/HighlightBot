@@ -187,8 +187,9 @@ public sealed class Program {
 									}
 								);
 							} catch (Exception ex) {
-								if (ex is UnauthorizedException) {
-									// User blocked bot or does not allow DMs, either way, don't care
+								if (ex is UnauthorizedException or NotFoundException) {
+									// 404: User left guild or account was deleted, don't care
+									// 403: User blocked bot or does not allow DMs, either way, don't care
 									continue;
 								}
 								FormattableString errorMessage = $"Couldn't DM {grouping.Key} ({target?.Username}#{target?.Discriminator})";
