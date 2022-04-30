@@ -80,6 +80,7 @@ public sealed class Program {
 		var discord = host.Services.GetRequiredService<DiscordClient>();
 		var commands = discord.GetCommandsNext();
 		commands.RegisterCommands<HighlightCommandModule>();
+		commands.RegisterCommands<HighlightCommandModule.Subgroup>();
 
 		commands.CommandErrored += (_, eventArgs) => {
 			return eventArgs.Exception switch {

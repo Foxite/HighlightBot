@@ -11,14 +11,14 @@ namespace HighlightBot;
 public class HighlightCommandModule : BaseCommandModule {
 	public HighlightDbContext DbContext { get; set; }
 
-	private Task<HighlightUser?> GetUserAsync(CommandContext context) {
+	protected Task<HighlightUser?> GetUserAsync(CommandContext context) {
 		return DbContext.Users.Include(user => user.Terms).Include(user => user.IgnoredChannels).FirstOrDefaultAsync(user => user.DiscordGuildId == context.Guild.Id && user.DiscordUserId == context.User.Id);
 	}
 
 	/// <summary>
 	/// Does not save changes, which you might not want to do either.
 	/// </summary>
-	private async Task<HighlightUser> GetOrCreateUserAsync(CommandContext context) {
+	protected async Task<HighlightUser> GetOrCreateUserAsync(CommandContext context) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null) {
 			user = new HighlightUser() {
@@ -34,7 +34,7 @@ public class HighlightCommandModule : BaseCommandModule {
 		return user;
 	}
 
-	private static void AddEmbedOfTrackedTerms(HighlightUser user, DiscordMessageBuilder dmb) {
+	protected static void AddEmbedOfTrackedTerms(HighlightUser user, DiscordMessageBuilder dmb) {
 		if (user.Terms.Count > 0) {
 			DiscordEmbedBuilder embed = new DiscordEmbedBuilder()
 				.WithTitle("You're currently tracking the following terms")
@@ -194,6 +194,24 @@ public class HighlightCommandModule : BaseCommandModule {
 			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(existingEntry == null ? "not notify you" : "now notify you again")} if someone says them in {channel.Mention}");
 		} else {
 			await context.RespondAsync($"I will {(existingEntry == null ? "not notify you anymore" : "now notify you again")} if anyone says one of your highlights in {channel.Mention}.");
+		}
+	}
+}
+
+[Group("ignore")]
+public class Subgroup : HighlightCommandModule {
+	[Command("bots"), Priority(1)]
+	public async Task IgnoreBots(CommandContext context, string botLiteral) {
+		HighlightUser user = await GetOrCreateUserAsync(context);
+
+		user.IgnoreBots = !user.IgnoreBots;
+
+		await DbContext.SaveChangesAsync();
+
+		if (user.Terms.Count == 0) {
+			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(user.IgnoreBots ? "not notify you" : "now notify you again")} if a bot says them.");
+		} else {
+			await context.RespondAsync($"I will {(user.IgnoreBots ? "not notify you anymore" : "now notify you again")} if a bot says one of your highlights.");
 		}
 	}
 }
