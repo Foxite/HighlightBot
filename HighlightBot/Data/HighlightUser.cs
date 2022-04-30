@@ -5,6 +5,7 @@ public class HighlightUser {
 	public ulong DiscordUserId { get; set; }
 	public DateTime LastActivity { get; set; }
 	public TimeSpan HighlightDelay { get; set; } = TimeSpan.FromMinutes(30);
+	public bool IgnoreBots { get; set; } = true;
 	public ICollection<HighlightTerm> Terms { get; set; }
 	public ICollection<HighlightUserIgnoredChannel> IgnoredChannels { get; set; }
 }

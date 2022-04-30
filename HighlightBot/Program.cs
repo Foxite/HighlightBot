@@ -102,7 +102,7 @@ public sealed class Program {
 	private static readonly object m_DatabaseLock = new();
 
 	private static Task OnMessageCreatedAsync(DiscordClient discord, MessageCreateEventArgs e) {
-		if (e.Guild != null && !e.Author.IsBot) {
+		if (e.Guild != null) {
 			_ = Task.Run(async () => {
 				try {
 					List<UserIdAndTerm> allTerms;
@@ -135,6 +135,7 @@ public sealed class Program {
 							.Where(term =>
 								term.User.DiscordGuildId == e.Guild.Id &&
 								term.User.DiscordUserId != e.Author.Id &&
+								(!e.Author.IsBot || term.User.IgnoreBots) &&
 								term.User.LastActivity + term.User.HighlightDelay < currentTime &&
 								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id)
 							)
