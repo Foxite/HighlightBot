@@ -53,7 +53,9 @@ public class HighlightCommandModule : BaseCommandModule {
 			if (user.IgnoredChannels.Count > 0) {
 				embed.AddField("Ignored Channels", string.Join("\n", user.IgnoredChannels.Select(huic => "<#" + huic.ChannelId + ">")));
 			}
-			
+
+			embed.AddField("Ignore bots", user.IgnoreBots ? "Yes" : "No");
+
 			embed
 				.AddField("Highlight Delay", user.HighlightDelay.TotalHours >= 1 ? user.HighlightDelay.ToString(@"h\:mm\:ss") : user.HighlightDelay.ToString(@"m\:ss"))
 				.AddField("To add a new regex:", "Surround a term with `/slashes/`");
@@ -174,8 +176,26 @@ public class HighlightCommandModule : BaseCommandModule {
 			await context.RespondAsync($"I will notify you if anyone says one of your highlights and you've been inactive for {minutes} minute{(minutes == 1 ? "" : "s")}.");
 		}
 	}
+}
 
-	[Command("ignore")]
+[Group("ignore")]
+public class IgnoreModule : HighlightCommandModule {
+	[Command("bots"), Priority(1)]
+	public async Task IgnoreBots(CommandContext context) {
+		HighlightUser user = await GetOrCreateUserAsync(context);
+
+		user.IgnoreBots = !user.IgnoreBots;
+
+		await DbContext.SaveChangesAsync();
+
+		if (user.Terms.Count == 0) {
+			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(user.IgnoreBots ? "not notify you" : "now notify you again")} if a bot says them.");
+		} else {
+			await context.RespondAsync($"I will {(user.IgnoreBots ? "not notify you anymore" : "now notify you again")} if a bot says one of your highlights.");
+		}
+	}
+
+	[GroupCommand()]
 	public async Task IgnoreChannel(CommandContext context, DiscordChannel channel) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
@@ -194,24 +214,6 @@ public class HighlightCommandModule : BaseCommandModule {
 			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(existingEntry == null ? "not notify you" : "now notify you again")} if someone says them in {channel.Mention}");
 		} else {
 			await context.RespondAsync($"I will {(existingEntry == null ? "not notify you anymore" : "now notify you again")} if anyone says one of your highlights in {channel.Mention}.");
-		}
-	}
-}
-
-[Group("ignore")]
-public class Subgroup : HighlightCommandModule {
-	[Command("bots"), Priority(1)]
-	public async Task IgnoreBots(CommandContext context, string botLiteral) {
-		HighlightUser user = await GetOrCreateUserAsync(context);
-
-		user.IgnoreBots = !user.IgnoreBots;
-
-		await DbContext.SaveChangesAsync();
-
-		if (user.Terms.Count == 0) {
-			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(user.IgnoreBots ? "not notify you" : "now notify you again")} if a bot says them.");
-		} else {
-			await context.RespondAsync($"I will {(user.IgnoreBots ? "not notify you anymore" : "now notify you again")} if a bot says one of your highlights.");
 		}
 	}
 }
