@@ -195,7 +195,22 @@ public class IgnoreModule : HighlightCommandModule {
 		}
 	}
 
-	[GroupCommand()]
+	[Command("bots"), Priority(1)]
+	public async Task IgnoreNsfw(CommandContext context) {
+		HighlightUser user = await GetOrCreateUserAsync(context);
+
+		user.IgnoreNsfw = !user.IgnoreNsfw;
+
+		await DbContext.SaveChangesAsync();
+
+		if (user.Terms.Count == 0) {
+			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(user.IgnoreBots ? "not notify you" : "now notify you again")} if a bot says them.");
+		} else {
+			await context.RespondAsync($"I will {(user.IgnoreBots ? "not notify you anymore" : "now notify you again")} if a bot says one of your highlights.");
+		}
+	}
+
+	[GroupCommand]
 	public async Task IgnoreChannel(CommandContext context, DiscordChannel channel) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 

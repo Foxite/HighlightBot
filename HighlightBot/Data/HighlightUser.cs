@@ -6,6 +6,7 @@ public class HighlightUser {
 	public DateTime LastActivity { get; set; }
 	public TimeSpan HighlightDelay { get; set; } = TimeSpan.FromMinutes(30);
 	public bool IgnoreBots { get; set; } = true;
+	public bool IgnoreNsfw { get; set; } = false;
 	public ICollection<HighlightTerm> Terms { get; set; }
 	public ICollection<HighlightUserIgnoredChannel> IgnoredChannels { get; set; }
 }
