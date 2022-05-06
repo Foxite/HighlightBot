@@ -137,7 +137,7 @@ public sealed class Program {
 								term.User.DiscordGuildId == e.Guild.Id &&
 								term.User.DiscordUserId != e.Author.Id &&
 								(!e.Author.IsBot || term.User.IgnoreBots) &&
-								(!(e.Channel.IsNSFW && !term.User.IgnoreNsfw)) &&
+								(!e.Channel.IsNSFW || term.User.IgnoreNsfw) &&
 								term.User.LastActivity + term.User.HighlightDelay < currentTime &&
 								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id)
 							)
