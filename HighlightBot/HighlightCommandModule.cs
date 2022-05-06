@@ -55,6 +55,7 @@ public class HighlightCommandModule : BaseCommandModule {
 			}
 
 			embed.AddField("Ignore bots", user.IgnoreBots ? "Yes" : "No");
+			embed.AddField("Ignore NSFW", user.IgnoreNsfw ? "Yes" : "No");
 
 			embed
 				.AddField("Highlight Delay", user.HighlightDelay.TotalHours >= 1 ? user.HighlightDelay.ToString(@"h\:mm\:ss") : user.HighlightDelay.ToString(@"m\:ss"))
