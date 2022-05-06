@@ -195,7 +195,7 @@ public class IgnoreModule : HighlightCommandModule {
 		}
 	}
 
-	[Command("bots"), Priority(1)]
+	[Command("nsfw"), Priority(1)]
 	public async Task IgnoreNsfw(CommandContext context) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
