@@ -1,11 +1,11 @@
 ﻿using System.Diagnostics;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using DSharpPlus;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Exceptions;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
+using DSharpPlus.SlashCommands;
 using Foxite.Common;
 using Foxite.Common.Notifications;
 using Microsoft.EntityFrameworkCore;
@@ -41,23 +41,17 @@ public sealed class Program {
 				isc.Configure<ConnectionStringsConfiguration>(hbc.Configuration.GetSection("ConnectionStrings"));
 
 				isc.AddSingleton(isp => {
-					var clientConfig = new DiscordConfiguration {
+					var client = new DiscordClient(new DiscordConfiguration {
 						Token = hbc.Configuration.GetSection("Discord").GetValue<string>("Token"),
 						Intents = DiscordIntents.GuildMessages | DiscordIntents.Guilds,
 						LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 						MinimumLogLevel = LogLevel.Information,
 						AlwaysCacheMembers = false
-					};
-					
-					var client = new DiscordClient(clientConfig);
-					
-					var commandsConfig = new CommandsNextConfiguration {
-						Services = isp,
-						EnableDms = false,
-						EnableMentionPrefix = true,
-					};
+					});
 
-					client.UseCommandsNext(commandsConfig);
+					client.UseSlashCommands(new SlashCommandsConfiguration() {
+						Services = isp
+					});
 
 					return client;
 				});
@@ -78,24 +72,21 @@ public sealed class Program {
 		}
 
 		var discord = host.Services.GetRequiredService<DiscordClient>();
-		var commands = discord.GetCommandsNext();
-		commands.RegisterCommands<StandardCommandModule>();
-		commands.RegisterCommands<StandardIgnoreModule>();
 		
-		var slash = discord.GetCommandsNext();
-		slash.RegisterCommands<SlashCommandModule>();
-		slash.RegisterCommands<SlashIgnoreModule>();
+		SlashCommandsExtension slash = discord.GetSlashCommands();
 
-		commands.CommandErrored += (_, eventArgs) => {
-			return eventArgs.Exception switch {
-				CommandNotFoundException => eventArgs.Context.RespondAsync("Unknown command."),
-				ChecksFailedException => eventArgs.Context.RespondAsync("Checks failed 🙁"),
-				ArgumentException { Message: "Could not find a suitable overload for the command." } => eventArgs.Context.RespondAsync("Invalid arguments."),
-				_ => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync("Exception while executing command", eventArgs.Exception).ContinueWith(t => eventArgs.Context.RespondAsync("Internal error; devs notified."))
-			};
+		string? slashCommandsGuildIdEnvvar = Environment.GetEnvironmentVariable("COMMAND_GUILD_ID");
+		ulong? slashCommandsGuildId = slashCommandsGuildIdEnvvar == null ? null : ulong.Parse(slashCommandsGuildIdEnvvar);
+		slash.RegisterCommands<SlashCommandModule>(slashCommandsGuildId);
+		slash.RegisterCommands<SlashIgnoreModule>(slashCommandsGuildId);
+		
+		slash.SlashCommandErrored += async (_, eventArgs) => {
+			await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync("Exception while executing command", eventArgs.Exception);
+			await eventArgs.Context.RespondAsync("Internal error; devs notified.");
 		};
 
-		discord.MessageCreated += OnMessageCreatedAsync;
+		discord.MessageCreated += PerformHighlight;
+		discord.MessageCreated += NotifySlashCommands;
 
 		discord.ClientErrored += (_, eventArgs) => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
 
@@ -104,9 +95,42 @@ public sealed class Program {
 		await host.RunAsync();
 	}
 
-	private static readonly object m_DatabaseLock = new();
+	private static Task NotifySlashCommands(DiscordClient discord, MessageCreateEventArgs eventArgs) {
+		if (eventArgs.Author.IsBot || eventArgs.Channel.IsPrivate) {
+			return Task.CompletedTask;
+		}
 
-	private static Task OnMessageCreatedAsync(DiscordClient discord, MessageCreateEventArgs e) {
+		int mentionLength = GetMentionPrefixLength(eventArgs.Message, discord.CurrentUser);
+
+		if (mentionLength == -1) {
+			return Task.CompletedTask;
+		}
+
+		return eventArgs.Message.RespondAsync("We use slash commands now, try /show");
+	}
+	
+	private static Regex UserRegex { get; } = new Regex(@"<@\!?(\d+?)>", RegexOptions.ECMAScript);
+	private static int GetMentionPrefixLength(DiscordMessage msg, DiscordUser user)
+	{
+		var content = msg.Content;
+		if (!content.StartsWith("<@"))
+			return -1;
+
+		var cni = content.IndexOf('>');
+		if (cni == -1)
+			return -1;
+
+		var cnp = content.Substring(0, cni + 1);
+		var m =  UserRegex.Match(cnp);
+		if (!m.Success)
+			return -1;
+
+		var userId = ulong.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+		return user.Id != userId ? -1 : m.Value.Length;
+	}
+
+	private static readonly object m_DatabaseLock = new();
+	private static Task PerformHighlight(DiscordClient discord, MessageCreateEventArgs e) {
 		if (e.Guild != null) {
 			_ = Task.Run(async () => {
 				try {

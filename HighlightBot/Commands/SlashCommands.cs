@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HighlightBot;
 
+// TODO find a way to merge this with standard commands
+// TODO go back in time and tell me to start out with slash commands
 [SlashModuleLifespan(SlashModuleLifespan.Transient)]
 public class SlashCommandModule : ApplicationCommandModule {
 	public HighlightDbContext DbContext { get; set; }
@@ -88,7 +90,7 @@ public class SlashCommandModule : ApplicationCommandModule {
 	}
 
 	[SlashCommand("add", "Add a highlight or regex.")]
-	public async Task AddHighlight(InteractionContext context, string terms) {
+	public async Task AddHighlight(InteractionContext context, [Option("term", "The highlighted word. Surround with / to make it a regex")] string terms) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
 		string[] lines = terms.Split("\n");
@@ -136,8 +138,8 @@ public class SlashCommandModule : ApplicationCommandModule {
 		});
 	}
 
-	[SlashCommand("remove", "Remove a highlight.")]
-	public async Task RemoveHighlights(InteractionContext context, string highlight) {
+	[SlashCommand("remove", "Remove a highlight or regex.")]
+	public async Task RemoveHighlights(InteractionContext context, [Option("term", "The term to remove")] string highlight) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
 			await context.CreateResponseAsync("You're not tracking any words.");
@@ -164,7 +166,7 @@ public class SlashCommandModule : ApplicationCommandModule {
 	}
 
 	[SlashCommand("delay", "Set the minimum amount of time you have to be inactive, before you get notified.")]
-	public async Task SetHighlightDelay(InteractionContext context, int minutes) {
+	public async Task SetHighlightDelay(InteractionContext context, [Option("minutes", "Delay in minutes")] long minutes) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 		user.HighlightDelay = TimeSpan.FromMinutes(minutes);
 		await DbContext.SaveChangesAsync();
@@ -180,10 +182,10 @@ public class SlashCommandModule : ApplicationCommandModule {
 [SlashCommandGroup("ignore", "Ignore something.")]
 public class SlashIgnoreModule : SlashCommandModule {
 	[SlashCommand("bots", "Ignore bots.")]
-	public async Task IgnoreBots(InteractionContext context) {
+	public async Task IgnoreBots(InteractionContext context, [Option("ignore", "Ignore?")] bool ignore) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
-		user.IgnoreBots = !user.IgnoreBots;
+		user.IgnoreBots = ignore;
 
 		await DbContext.SaveChangesAsync();
 
@@ -195,10 +197,10 @@ public class SlashIgnoreModule : SlashCommandModule {
 	}
 
 	[SlashCommand("nsfw", "Ignore NSFW channels.")]
-	public async Task IgnoreNsfw(InteractionContext context) {
+	public async Task IgnoreNsfw(InteractionContext context, [Option("ignore", "Ignore?")] bool ignore) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
-		user.IgnoreNsfw = !user.IgnoreNsfw;
+		user.IgnoreNsfw = ignore;
 
 		await DbContext.SaveChangesAsync();
 
@@ -210,7 +212,7 @@ public class SlashIgnoreModule : SlashCommandModule {
 	}
 
 	[SlashCommand("channel", "Ignore a channel.")]
-	public async Task IgnoreChannel(InteractionContext context, DiscordChannel channel) {
+	public async Task IgnoreChannel(InteractionContext context, [Option("channel", "The channel to ignore (or stop ignoring)")] DiscordChannel channel) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
 		HighlightUserIgnoredChannel? existingEntry = user.IgnoredChannels.FirstOrDefault(huic => huic.ChannelId == channel.Id);
