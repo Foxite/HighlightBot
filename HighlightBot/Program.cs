@@ -79,7 +79,7 @@ public sealed class Program {
 
 		var discord = host.Services.GetRequiredService<DiscordClient>();
 		var commands = discord.GetCommandsNext();
-		commands.RegisterCommands<HighlightCommandModule>();
+		commands.RegisterCommands<StandardCommandModule>();
 		commands.RegisterCommands<IgnoreModule>();
 
 		commands.CommandErrored += (_, eventArgs) => {

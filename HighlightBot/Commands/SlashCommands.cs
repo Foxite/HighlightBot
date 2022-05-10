@@ -1,24 +1,22 @@
 using System.Text.RegularExpressions;
-using DSharpPlus;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
+using DSharpPlus.SlashCommands;
 using Microsoft.EntityFrameworkCore;
 
 namespace HighlightBot;
 
-[ModuleLifespan(ModuleLifespan.Transient)]
-public class HighlightCommandModule : BaseCommandModule {
+[SlashModuleLifespan(SlashModuleLifespan.Transient)]
+public class SlashCommandModule : ApplicationCommandModule {
 	public HighlightDbContext DbContext { get; set; }
 
-	protected Task<HighlightUser?> GetUserAsync(CommandContext context) {
+	protected Task<HighlightUser?> GetUserAsync(InteractionContext context) {
 		return DbContext.Users.Include(user => user.Terms).Include(user => user.IgnoredChannels).FirstOrDefaultAsync(user => user.DiscordGuildId == context.Guild.Id && user.DiscordUserId == context.User.Id);
 	}
 
 	/// <summary>
 	/// Does not save changes, which you might not want to do either.
 	/// </summary>
-	protected async Task<HighlightUser> GetOrCreateUserAsync(CommandContext context) {
+	protected async Task<HighlightUser> GetOrCreateUserAsync(InteractionContext context) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null) {
 			user = new HighlightUser() {
@@ -68,7 +66,7 @@ public class HighlightCommandModule : BaseCommandModule {
 	}
 	
 	[Command("show")]
-	public async Task GetAllHighlights(CommandContext context) {
+	public async Task GetAllHighlights(InteractionContext context) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
 			await context.RespondAsync("You're not tracking any words.");
@@ -78,7 +76,7 @@ public class HighlightCommandModule : BaseCommandModule {
 	}
 
 	[Command("clear")]
-	public async Task ClearHighlights(CommandContext context) {
+	public async Task ClearHighlights(InteractionContext context) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
 			await context.RespondAsync("You're not tracking any words.");
@@ -90,7 +88,7 @@ public class HighlightCommandModule : BaseCommandModule {
 	}
 
 	[Command("add")]
-	public async Task AddHighlight(CommandContext context, [RemainingText] string terms) {
+	public async Task AddHighlight(InteractionContext context, [RemainingText] string terms) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
 		string[] lines = terms.Split("\n");
@@ -138,11 +136,11 @@ public class HighlightCommandModule : BaseCommandModule {
 		});
 	}
 
-	[Command("remove"), Aliases("rm")]
-	public async Task RemoveHighlights(CommandContext context, [RemainingText] string highlight) {
+	[SlashCommand("remove")]
+	public async Task RemoveHighlights(InteractionContext context, string highlight) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
-			await context.RespondAsync("You're not tracking any words.");
+			await context.CreateResponseAsync("You're not tracking any words.");
 		} else {
 			if (highlight.StartsWith('/') && highlight.EndsWith('/')) {
 				highlight = $"`{highlight}`";
@@ -165,8 +163,8 @@ public class HighlightCommandModule : BaseCommandModule {
 		}
 	}
 
-	[Command("delay")]
-	public async Task SetHighlightDelay(CommandContext context, int minutes) {
+	[SlashCommand("delay")]
+	public async Task SetHighlightDelay(InteractionContext context, int minutes) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 		user.HighlightDelay = TimeSpan.FromMinutes(minutes);
 		await DbContext.SaveChangesAsync();
@@ -179,10 +177,10 @@ public class HighlightCommandModule : BaseCommandModule {
 	}
 }
 
-[Group("ignore")]
-public class IgnoreModule : HighlightCommandModule {
-	[Command("bots"), Priority(1)]
-	public async Task IgnoreBots(CommandContext context) {
+[SlashCommandGroup("ignore", "Ignore something.")]
+public class SlashIgnoreModule : SlashCommandModule {
+	[SlashCommand("bots")]
+	public async Task IgnoreBots(InteractionContext context) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
 		user.IgnoreBots = !user.IgnoreBots;
@@ -196,8 +194,8 @@ public class IgnoreModule : HighlightCommandModule {
 		}
 	}
 
-	[Command("nsfw"), Priority(1)]
-	public async Task IgnoreNsfw(CommandContext context) {
+	[SlashCommand("nsfw")]
+	public async Task IgnoreNsfw(InteractionContext context) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
 		user.IgnoreNsfw = !user.IgnoreNsfw;
@@ -211,8 +209,8 @@ public class IgnoreModule : HighlightCommandModule {
 		}
 	}
 
-	[GroupCommand]
-	public async Task IgnoreChannel(CommandContext context, DiscordChannel channel) {
+	[SlashCommand("channel")]
+	public async Task IgnoreChannel(InteractionContext context, DiscordChannel channel) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
 		HighlightUserIgnoredChannel? existingEntry = user.IgnoredChannels.FirstOrDefault(huic => huic.ChannelId == channel.Id);
@@ -231,5 +229,17 @@ public class IgnoreModule : HighlightCommandModule {
 		} else {
 			await context.RespondAsync($"I will {(existingEntry == null ? "not notify you anymore" : "now notify you again")} if anyone says one of your highlights in {channel.Mention}.");
 		}
+	}
+}
+
+public static class InteractionUtils {
+	public static Task RespondAsync(this InteractionContext context, string content) =>
+		RespondAsync(context, dmb => dmb.WithContent(content));
+
+	public static Task RespondAsync(this InteractionContext context, Action<DiscordMessageBuilder> builder) {
+		var dmb = new DiscordMessageBuilder();
+		builder(dmb);
+
+		return context.CreateResponseAsync(new DiscordInteractionResponseBuilder(dmb));
 	}
 }
