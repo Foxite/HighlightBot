@@ -65,7 +65,7 @@ public class SlashCommandModule : ApplicationCommandModule {
 		}
 	}
 	
-	[Command("show")]
+	[SlashCommand("show", "Show your current highlights.")]
 	public async Task GetAllHighlights(InteractionContext context) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
@@ -75,7 +75,7 @@ public class SlashCommandModule : ApplicationCommandModule {
 		}
 	}
 
-	[Command("clear")]
+	[SlashCommand("clear", "Remove all your highlights.")]
 	public async Task ClearHighlights(InteractionContext context) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
@@ -87,8 +87,8 @@ public class SlashCommandModule : ApplicationCommandModule {
 		}
 	}
 
-	[Command("add")]
-	public async Task AddHighlight(InteractionContext context, [RemainingText] string terms) {
+	[SlashCommand("add", "Add a highlight or regex.")]
+	public async Task AddHighlight(InteractionContext context, string terms) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
 		string[] lines = terms.Split("\n");
@@ -136,7 +136,7 @@ public class SlashCommandModule : ApplicationCommandModule {
 		});
 	}
 
-	[SlashCommand("remove")]
+	[SlashCommand("remove", "Remove a highlight.")]
 	public async Task RemoveHighlights(InteractionContext context, string highlight) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
@@ -163,7 +163,7 @@ public class SlashCommandModule : ApplicationCommandModule {
 		}
 	}
 
-	[SlashCommand("delay")]
+	[SlashCommand("delay", "Set the minimum amount of time you have to be inactive, before you get notified.")]
 	public async Task SetHighlightDelay(InteractionContext context, int minutes) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 		user.HighlightDelay = TimeSpan.FromMinutes(minutes);
@@ -179,7 +179,7 @@ public class SlashCommandModule : ApplicationCommandModule {
 
 [SlashCommandGroup("ignore", "Ignore something.")]
 public class SlashIgnoreModule : SlashCommandModule {
-	[SlashCommand("bots")]
+	[SlashCommand("bots", "Ignore bots.")]
 	public async Task IgnoreBots(InteractionContext context) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
@@ -194,7 +194,7 @@ public class SlashIgnoreModule : SlashCommandModule {
 		}
 	}
 
-	[SlashCommand("nsfw")]
+	[SlashCommand("nsfw", "Ignore NSFW channels.")]
 	public async Task IgnoreNsfw(InteractionContext context) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
@@ -209,7 +209,7 @@ public class SlashIgnoreModule : SlashCommandModule {
 		}
 	}
 
-	[SlashCommand("channel")]
+	[SlashCommand("channel", "Ignore a channel.")]
 	public async Task IgnoreChannel(InteractionContext context, DiscordChannel channel) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
