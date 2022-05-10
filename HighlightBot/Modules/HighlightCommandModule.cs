@@ -1,14 +1,13 @@
 using System.Text.RegularExpressions;
-using DSharpPlus;
-using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
+using DSharpPlus.SlashCommands;
 using Microsoft.EntityFrameworkCore;
 
 namespace HighlightBot;
 
-[ModuleLifespan(ModuleLifespan.Transient)]
-public class HighlightCommandModule : BaseCommandModule {
+[SlashModuleLifespan(SlashModuleLifespan.Transient)]
+public class HighlightCommandModule : ApplicationCommandModule {
 	public HighlightDbContext DbContext { get; set; }
 
 	protected Task<HighlightUser?> GetUserAsync(CommandContext context) {
@@ -67,7 +66,7 @@ public class HighlightCommandModule : BaseCommandModule {
 		}
 	}
 	
-	[Command("show")]
+	[SlashCommand("show", "Show your current highlights.")]
 	public async Task GetAllHighlights(CommandContext context) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
@@ -77,7 +76,7 @@ public class HighlightCommandModule : BaseCommandModule {
 		}
 	}
 
-	[Command("clear")]
+	[SlashCommand("clear", "Remove all your highlights.")]
 	public async Task ClearHighlights(CommandContext context) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
@@ -89,7 +88,7 @@ public class HighlightCommandModule : BaseCommandModule {
 		}
 	}
 
-	[Command("add")]
+	[SlashCommand("add", "Add a highlight or regex.")]
 	public async Task AddHighlight(CommandContext context, [RemainingText] string terms) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
@@ -138,7 +137,7 @@ public class HighlightCommandModule : BaseCommandModule {
 		});
 	}
 
-	[Command("remove"), Aliases("rm")]
+	[SlashCommand("remove", "rm"), Description("Remove a highlight.")]
 	public async Task RemoveHighlights(CommandContext context, [RemainingText] string highlight) {
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
@@ -165,7 +164,7 @@ public class HighlightCommandModule : BaseCommandModule {
 		}
 	}
 
-	[Command("delay")]
+	[SlashCommand("delay", "Set the minimum amount of time you have to be inactive, before you get notified.")]
 	public async Task SetHighlightDelay(CommandContext context, int minutes) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 		user.HighlightDelay = TimeSpan.FromMinutes(minutes);
@@ -181,7 +180,7 @@ public class HighlightCommandModule : BaseCommandModule {
 
 [Group("ignore")]
 public class IgnoreModule : HighlightCommandModule {
-	[Command("bots"), Priority(1)]
+	[SlashCommand("bots", "Ignore bots."), Priority(1)]
 	public async Task IgnoreBots(CommandContext context) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
@@ -196,7 +195,7 @@ public class IgnoreModule : HighlightCommandModule {
 		}
 	}
 
-	[Command("nsfw"), Priority(1)]
+	[SlashCommand("nsfw", "Ignore NSFW channels."), Priority(1)]
 	public async Task IgnoreNsfw(CommandContext context) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
@@ -211,7 +210,7 @@ public class IgnoreModule : HighlightCommandModule {
 		}
 	}
 
-	[GroupCommand]
+	[GroupCommand, SlashCommand("channel", "Ignore a channel.")]
 	public async Task IgnoreChannel(CommandContext context, DiscordChannel channel) {
 		HighlightUser user = await GetOrCreateUserAsync(context);
 

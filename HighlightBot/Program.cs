@@ -6,6 +6,7 @@ using DSharpPlus.CommandsNext.Exceptions;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
+using DSharpPlus.SlashCommands;
 using Foxite.Common;
 using Foxite.Common.Notifications;
 using Microsoft.EntityFrameworkCore;
@@ -41,23 +42,24 @@ public sealed class Program {
 				isc.Configure<ConnectionStringsConfiguration>(hbc.Configuration.GetSection("ConnectionStrings"));
 
 				isc.AddSingleton(isp => {
-					var clientConfig = new DiscordConfiguration {
+					var client = new DiscordClient(new DiscordConfiguration {
 						Token = hbc.Configuration.GetSection("Discord").GetValue<string>("Token"),
 						Intents = DiscordIntents.GuildMessages | DiscordIntents.Guilds,
 						LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 						MinimumLogLevel = LogLevel.Information,
 						AlwaysCacheMembers = false
-					};
-					
-					var client = new DiscordClient(clientConfig);
-					
-					var commandsConfig = new CommandsNextConfiguration {
+					});
+
+					// Can't add these extenions to the ISC because they get disposed, and then the client gets disposed while it is still needed.
+					client.UseCommandsNext(new CommandsNextConfiguration {
 						Services = isp,
 						EnableDms = false,
 						EnableMentionPrefix = true,
-					};
-
-					client.UseCommandsNext(commandsConfig);
+					});
+					
+					client.UseSlashCommands(new SlashCommandsConfiguration() {
+						Services = isp
+					});
 
 					return client;
 				});
@@ -79,8 +81,11 @@ public sealed class Program {
 
 		var discord = host.Services.GetRequiredService<DiscordClient>();
 		var commands = discord.GetCommandsNext();
-		commands.RegisterCommands<HighlightCommandModule>();
-		commands.RegisterCommands<IgnoreModule>();
+		// commands.RegisterCommands<HighlightCommandModule>();
+		// commands.RegisterCommands<IgnoreModule>();
+		commands.RegisterCommands();
+
+		var slashCommands = discord.GetSlashCommands();
 
 		commands.CommandErrored += (_, eventArgs) => {
 			return eventArgs.Exception switch {
