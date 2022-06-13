@@ -154,13 +154,12 @@ public sealed class Program {
 
 					if (allTerms.Count > 0) {
 						DiscordGuild guild = discord.Guilds[e.Guild.Id];
-						var sender = (DiscordMember) e.Author;
 						IReadOnlyList<DiscordMessage> lastMessages = await e.Channel.GetMessagesBeforeAsync(e.Message.Id + 1, 5); // Maybe use the message cache here?
 
 						var notificationEmbed = new DiscordEmbedBuilder() {
 							Author = new DiscordEmbedBuilder.EmbedAuthor() {
-								IconUrl = sender.GuildAvatarUrl ?? sender.AvatarUrl,
-								Name = sender.DisplayName
+								IconUrl = (e.Author as DiscordMember)?.GuildAvatarUrl ?? e.Author.AvatarUrl,
+								Name = (e.Author as DiscordMember)?.DisplayName ?? e.Author.Username
 							},
 							Color = new Optional<DiscordColor>(DiscordColor.Yellow),
 							Description = string.Join('\n', lastMessages.Backwards().Select(message => $"{Formatter.Bold($"[{message.CreationTimestamp.ToUniversalTime():T}] {(message.Author as DiscordMember)?.DisplayName ?? message.Author.Username}:")} {message.Content.Ellipsis(500)}")),

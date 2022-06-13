@@ -90,7 +90,12 @@ public class HighlightCommandModule : BaseCommandModule {
 	}
 
 	[Command("add")]
-	public async Task AddHighlight(CommandContext context, [RemainingText] string terms) {
+	public async Task AddHighlight(CommandContext context, [RemainingText] string? terms) {
+		if (terms == null) {
+			await context.RespondAsync("You must specify one or more terms to add.");
+			return;
+		}
+
 		HighlightUser user = await GetOrCreateUserAsync(context);
 
 		string[] lines = terms.Split("\n");
@@ -139,7 +144,12 @@ public class HighlightCommandModule : BaseCommandModule {
 	}
 
 	[Command("remove"), Aliases("rm")]
-	public async Task RemoveHighlights(CommandContext context, [RemainingText] string highlight) {
+	public async Task RemoveHighlights(CommandContext context, [RemainingText] string? highlight) {
+		if (highlight == null) {
+			await context.RespondAsync("You must specify a term to remove.");
+			return;
+		}
+		
 		HighlightUser? user = await GetUserAsync(context);
 		if (user == null || user.Terms.Count == 0) {
 			await context.RespondAsync("You're not tracking any words.");
