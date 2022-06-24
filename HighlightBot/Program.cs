@@ -130,24 +130,30 @@ public sealed class Program {
 
 						string content = e.Message.Content.ToLowerInvariant();
 						DateTime currentTime = DateTime.UtcNow;
+						DateTime fiveMinutesAgo = DateTime.UtcNow - TimeSpan.FromMinutes(5);
 						allTerms = dbContext.Terms
-							.Include(term => term.User)
-							.ThenInclude(user => user.IgnoredChannels)
 							.Where(term =>
 								term.User.DiscordGuildId == e.Guild.Id &&
 								term.User.DiscordUserId != e.Author.Id &&
 								(!(e.Author.IsBot && term.User.IgnoreBots)) &&
 								(!(e.Channel.IsNSFW && term.User.IgnoreNsfw)) &&
 								term.User.LastActivity + term.User.HighlightDelay < currentTime &&
+								term.User.LastDM < fiveMinutesAgo &&
 								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id)
 							)
+							.Select(term => new {
+								term.User.DiscordUserId,
+								term.User.DiscordGuildId,
+								term.Regex,
+								term.Display
+							})
 							.AsEnumerable()
 							// TODO TEMPORARY HACK! this does not scale.
 							// Find a way to get PCRE regexes going in the database (postgres seems to use POSIX regexes)
 							.Where(term => Regex.IsMatch(content, term.Regex, RegexOptions.IgnoreCase))
 							.Select(term => new UserIdAndTerm() {
-								Value = term.Display,
-								DiscordUserId = term.User.DiscordUserId
+								DiscordUserId = term.DiscordUserId,
+								Value = term.Display
 							})
 							.ToList();
 					}
@@ -168,7 +174,8 @@ public sealed class Program {
 						notificationEmbed = notificationEmbed
 							.AddField("Source message", $"{Formatter.MaskedUrl("Jump to", e.Message.JumpLink)}");
 
-						foreach (IGrouping<ulong, string> grouping in allTerms.GroupBy(userIdAndTerm => userIdAndTerm.DiscordUserId, userIdAndTerm => userIdAndTerm.Value)) {
+						List<IGrouping<ulong, string>> termsByUser = allTerms.GroupBy(userIdAndTerm => userIdAndTerm.DiscordUserId, userIdAndTerm => userIdAndTerm.Value).ToList();
+						foreach (IGrouping<ulong, string> grouping in termsByUser) {
 							DiscordMember? target = null;
 							try {
 								target = await guild.GetMemberAsync(grouping.Key);
@@ -182,22 +189,37 @@ public sealed class Program {
 								}
 
 								List<string> terms = grouping.ToList();
-								await target.SendMessageAsync(
-									new DiscordMessageBuilder() {
-										Content = $"In {Formatter.Bold(guild.Name)} {e.Channel.Mention}, you were mentioned with the highlighted word{(terms.Count > 1 ? "s" : "")} {Util.JoinOxfordComma(terms)}",
-										Embed = notificationEmbed
-									}
-								);
+								var discordMessageBuilder = new DiscordMessageBuilder() {
+									Content = $"In {Formatter.Bold(guild.Name)} {e.Channel.Mention}, you were mentioned with the highlighted word{(terms.Count > 1 ? "s" : "")} {Util.JoinOxfordComma(terms)}",
+									Embed = notificationEmbed
+								};
+								await target.SendMessageAsync(discordMessageBuilder);
 							} catch (Exception ex) {
 								if (ex is UnauthorizedException or NotFoundException) {
 									// 404: User left guild or account was deleted, don't care
 									// 403: User blocked bot or does not allow DMs, either way, don't care
 									continue;
 								}
+
 								FormattableString errorMessage = $"Couldn't DM {grouping.Key} ({target?.Username}#{target?.Discriminator})";
 								Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, errorMessage);
 								await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
 							}
+						}
+
+						lock (m_DatabaseLock) {
+							using var dbContext = Host.Services.GetRequiredService<HighlightDbContext>();
+							foreach (IGrouping<ulong, string> grouping in termsByUser) {
+								var attachedUser = new HighlightUser() {
+									DiscordUserId = grouping.Key,
+									DiscordGuildId = guild.Id
+								};
+
+								dbContext.Users.Attach(attachedUser);
+								attachedUser.LastActivity = DateTime.UtcNow;
+							}
+
+							dbContext.SaveChanges();
 						}
 					}
 				} catch (Exception ex) {
