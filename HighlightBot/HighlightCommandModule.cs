@@ -177,6 +177,10 @@ public class HighlightCommandModule : BaseCommandModule {
 
 	[Command("delay")]
 	public async Task SetHighlightDelay(CommandContext context, int minutes) {
+		if (minutes < 0) {
+			minutes = 0;
+		}
+
 		HighlightUser user = await GetOrCreateUserAsync(context);
 		user.HighlightDelay = TimeSpan.FromMinutes(minutes);
 		await DbContext.SaveChangesAsync();
