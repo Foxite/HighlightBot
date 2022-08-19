@@ -10,4 +10,5 @@ public class HighlightUser {
 	public DateTime LastDM { get; set; } = DateTime.UnixEpoch;
 	public ICollection<HighlightTerm> Terms { get; set; }
 	public ICollection<HighlightUserIgnoredChannel> IgnoredChannels { get; set; }
+	public ICollection<HighlightUserIgnoredUser> IgnoredUsers { get; set; }
 }

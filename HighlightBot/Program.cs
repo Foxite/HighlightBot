@@ -139,7 +139,8 @@ public sealed class Program {
 								(!(e.Channel.IsNSFW && term.User.IgnoreNsfw)) &&
 								term.User.LastActivity + term.User.HighlightDelay < currentTime &&
 								term.User.LastDM < fiveMinutesAgo &&
-								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id)
+								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id) &&
+								!term.User.IgnoredUsers.Any(huiu => huiu.IgnoredUserId == e.Author.Id)
 							)
 							.Select(term => new {
 								term.User.DiscordUserId,

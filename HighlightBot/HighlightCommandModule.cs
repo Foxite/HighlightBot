@@ -12,7 +12,11 @@ public class HighlightCommandModule : BaseCommandModule {
 	public HighlightDbContext DbContext { get; set; }
 
 	protected Task<HighlightUser?> GetUserAsync(CommandContext context) {
-		return DbContext.Users.Include(user => user.Terms).Include(user => user.IgnoredChannels).FirstOrDefaultAsync(user => user.DiscordGuildId == context.Guild.Id && user.DiscordUserId == context.User.Id);
+		return DbContext.Users
+			.Include(user => user.Terms)
+			.Include(user => user.IgnoredChannels)
+			.Include(user => user.IgnoredUsers)
+			.FirstOrDefaultAsync(user => user.DiscordGuildId == context.Guild.Id && user.DiscordUserId == context.User.Id);
 	}
 
 	/// <summary>
@@ -52,6 +56,10 @@ public class HighlightCommandModule : BaseCommandModule {
 
 			if (user.IgnoredChannels.Count > 0) {
 				embed.AddField("Ignored Channels", string.Join("\n", user.IgnoredChannels.Select(huic => "<#" + huic.ChannelId + ">")));
+			}
+
+			if (user.IgnoredUsers.Count > 0) {
+				embed.AddField("Ignored Users", string.Join("\n", user.IgnoredUsers.Select(huic => "<@" + huic.IgnoredUserId + ">")));
 			}
 
 			embed.AddField("Ignore bots", user.IgnoreBots ? "Yes" : "No");
@@ -222,6 +230,28 @@ public class IgnoreModule : HighlightCommandModule {
 			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(user.IgnoreBots ? "not notify you" : "now notify you again")} anyone says them in an NSFW channel.");
 		} else {
 			await context.RespondAsync($"I will {(user.IgnoreBots ? "not notify you anymore" : "now notify you again")} if anyone says one of your highlights in an NSFW channel.");
+		}
+	}
+
+	[GroupCommand]
+	public async Task IgnoreUser(CommandContext context, DiscordUser user) {
+		HighlightUser hlUser = await GetOrCreateUserAsync(context);
+
+		HighlightUserIgnoredUser? existingEntry = hlUser.IgnoredUsers.FirstOrDefault(huiu => huiu.IgnoredUserId == user.Id);
+		if (existingEntry != null) {
+			hlUser.IgnoredUsers.Remove(existingEntry);
+		} else {
+			hlUser.IgnoredUsers.Add(new HighlightUserIgnoredUser() {
+				IgnoredUserId = user.Id
+			});
+		}
+		
+		await DbContext.SaveChangesAsync();
+
+		if (hlUser.Terms.Count == 0) {
+			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(existingEntry == null ? "not notify you" : "now notify you again")} if {user.Username} says them.");
+		} else {
+			await context.RespondAsync($"I will {(existingEntry == null ? "not notify you anymore" : "now notify you again")} if {user.Username} says one of your highlights.");
 		}
 	}
 
