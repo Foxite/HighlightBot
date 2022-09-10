@@ -227,9 +227,9 @@ public class IgnoreModule : HighlightCommandModule {
 		await DbContext.SaveChangesAsync();
 
 		if (user.Terms.Count == 0) {
-			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(user.IgnoreBots ? "not notify you" : "now notify you again")} anyone says them in an NSFW channel.");
+			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(user.IgnoreNsfw ? "not notify you" : "now notify you again")} anyone says them in an NSFW channel.");
 		} else {
-			await context.RespondAsync($"I will {(user.IgnoreBots ? "not notify you anymore" : "now notify you again")} if anyone says one of your highlights in an NSFW channel.");
+			await context.RespondAsync($"I will {(user.IgnoreNsfw ? "not notify you anymore" : "now notify you again")} if anyone says one of your highlights in an NSFW channel.");
 		}
 	}
 
