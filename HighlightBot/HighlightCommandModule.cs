@@ -30,7 +30,8 @@ public class HighlightCommandModule : BaseCommandModule {
 				DiscordUserId = context.User.Id,
 				LastActivity = DateTime.UtcNow,
 				Terms = new List<HighlightTerm>(),
-				IgnoredChannels = new List<HighlightUserIgnoredChannel>()
+				IgnoredChannels = new List<HighlightUserIgnoredChannel>(),
+				IgnoredUsers = new List<HighlightUserIgnoredUser>()
 			};
 			DbContext.Users.Add(user);
 		}
