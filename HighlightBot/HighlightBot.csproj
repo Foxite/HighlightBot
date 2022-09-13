@@ -18,7 +18,7 @@
         <PackageReference Include="DSharpPlus" Version="4.3.0-testing-network-errors-1" />
         <PackageReference Include="DSharpPlus.CommandsNext" Version="4.3.0-testing-network-errors-1" />
         <PackageReference Include="Foxite.Common" Version="1.7.0" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.6" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.9" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.6">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
