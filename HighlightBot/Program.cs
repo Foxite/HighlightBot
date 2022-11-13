@@ -6,6 +6,7 @@ using DSharpPlus.CommandsNext.Exceptions;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
+using DSharpPlus.SlashCommands;
 using Foxite.Common;
 using Foxite.Common.Notifications;
 using Microsoft.EntityFrameworkCore;
@@ -59,6 +60,12 @@ public sealed class Program {
 
 					client.UseCommandsNext(commandsConfig);
 
+					var slashConfig = new SlashCommandsConfiguration() {
+						Services = isp,
+					};
+					
+					client.UseSlashCommands(slashConfig);
+
 					return client;
 				});
 				
@@ -81,6 +88,10 @@ public sealed class Program {
 		var commands = discord.GetCommandsNext();
 		commands.RegisterCommands<HighlightCommandModule>();
 		commands.RegisterCommands<IgnoreModule>();
+
+		var slashCommands = discord.GetSlashCommands();
+		slashCommands.RegisterCommands<SlashCommandModule>();
+		slashCommands.RegisterCommands<SlashIgnoreModule>();
 
 		commands.CommandErrored += (_, eventArgs) => {
 			return eventArgs.Exception switch {

@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using DSharpPlus.Entities;
+using DSharpPlus.SlashCommands;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -67,5 +69,11 @@ public static class Util {
 		}
 
 		return true;
+	}
+
+	public static Task CreateResponseAsync(this InteractionContext context, Action<DiscordInteractionResponseBuilder> action) {
+		var dmb = new DiscordInteractionResponseBuilder();
+		action(dmb);
+		return context.CreateResponseAsync(dmb);
 	}
 }
