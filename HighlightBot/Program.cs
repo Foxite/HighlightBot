@@ -137,7 +137,13 @@ public sealed class Program {
 					};
 					dbContext.Attach(author);
 					author.LastActivity = DateTime.UtcNow;
-					await dbContext.SaveChangesAsync();
+
+					try {
+						await dbContext.SaveChangesAsync();
+					} catch (DbUpdateConcurrencyException) {
+						// Happens when the author does not have a user entry in the database, in which case we don't care.
+						// If it happens because the database was actually concurrently, we also don't care.
+					}
 
 					string content = e.Message.Content.ToLowerInvariant();
 					DateTime currentTime = DateTime.UtcNow;
