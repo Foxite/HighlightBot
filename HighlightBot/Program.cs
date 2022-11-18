@@ -123,57 +123,58 @@ public sealed class Program {
 			_ = Task.Run(async () => {
 				try {
 					List<UserIdAndTerm> allTerms;
-					await using var scope = Host.Services.CreateAsyncScope();
-					var dbContext = scope.ServiceProvider.GetRequiredService<HighlightDbContext>();
-					
-					// Create a "fake" entity object and attach it to EF, then modify it and save the changes.
-					// This allows to update an entity without querying for it in the database.
-					// This is useful, because this function is expected to run a lot.
-					// Note that TODO we still need to implement in-memory caching for the database
-					// https://stackoverflow.com/a/58367364
-					var author = new HighlightUser() {
-						DiscordGuildId = e.Guild.Id,
-						DiscordUserId = e.Author.Id,
-					};
-					dbContext.Attach(author);
-					author.LastActivity = DateTime.UtcNow;
+					await using (var scope = Host.Services.CreateAsyncScope()) {
+						var dbContext = scope.ServiceProvider.GetRequiredService<HighlightDbContext>();
 
-					try {
-						await dbContext.SaveChangesAsync();
-					} catch (DbUpdateConcurrencyException) {
-						// Happens when the author does not have a user entry in the database, in which case we don't care.
-						// If it happens because the database was actually concurrently, we also don't care.
+						// Create a "fake" entity object and attach it to EF, then modify it and save the changes.
+						// This allows to update an entity without querying for it in the database.
+						// This is useful, because this function is expected to run a lot.
+						// Note that TODO we still need to implement in-memory caching for the database
+						// https://stackoverflow.com/a/58367364
+						var author = new HighlightUser() {
+							DiscordGuildId = e.Guild.Id,
+							DiscordUserId = e.Author.Id,
+						};
+						dbContext.Attach(author);
+						author.LastActivity = DateTime.UtcNow;
+
+						try {
+							await dbContext.SaveChangesAsync();
+						} catch (DbUpdateConcurrencyException) {
+							// Happens when the author does not have a user entry in the database, in which case we don't care.
+							// If it happens because the database was actually concurrently, we also don't care.
+						}
+
+						string content = e.Message.Content.ToLowerInvariant();
+						DateTime currentTime = DateTime.UtcNow;
+						DateTime fiveMinutesAgo = DateTime.UtcNow - TimeSpan.FromMinutes(5);
+						allTerms = dbContext.Terms
+							.Where(term =>
+								term.User.DiscordGuildId == e.Guild.Id &&
+								term.User.DiscordUserId != e.Author.Id &&
+								(!(e.Author.IsBot && term.User.IgnoreBots)) &&
+								(!(e.Channel.IsNSFW && term.User.IgnoreNsfw)) &&
+								term.User.LastActivity + term.User.HighlightDelay < currentTime &&
+								term.User.LastDM < fiveMinutesAgo &&
+								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id) &&
+								!term.User.IgnoredUsers.Any(huiu => huiu.IgnoredUserId == e.Author.Id)
+							)
+							.Select(term => new {
+								term.User.DiscordUserId,
+								term.User.DiscordGuildId,
+								term.Regex,
+								term.Display
+							})
+							.AsEnumerable()
+							// TODO TEMPORARY HACK! this does not scale.
+							// Find a way to get PCRE regexes going in the database (postgres seems to use POSIX regexes)
+							.Where(term => Regex.IsMatch(content, term.Regex, RegexOptions.IgnoreCase))
+							.Select(term => new UserIdAndTerm() {
+								DiscordUserId = term.DiscordUserId,
+								Value = term.Display
+							})
+							.ToList();
 					}
-
-					string content = e.Message.Content.ToLowerInvariant();
-					DateTime currentTime = DateTime.UtcNow;
-					DateTime fiveMinutesAgo = DateTime.UtcNow - TimeSpan.FromMinutes(5);
-					allTerms = dbContext.Terms
-						.Where(term =>
-							term.User.DiscordGuildId == e.Guild.Id &&
-							term.User.DiscordUserId != e.Author.Id &&
-							(!(e.Author.IsBot && term.User.IgnoreBots)) &&
-							(!(e.Channel.IsNSFW && term.User.IgnoreNsfw)) &&
-							term.User.LastActivity + term.User.HighlightDelay < currentTime &&
-							term.User.LastDM < fiveMinutesAgo &&
-							!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id) &&
-							!term.User.IgnoredUsers.Any(huiu => huiu.IgnoredUserId == e.Author.Id)
-						)
-						.Select(term => new {
-							term.User.DiscordUserId,
-							term.User.DiscordGuildId,
-							term.Regex,
-							term.Display
-						})
-						.AsEnumerable()
-						// TODO TEMPORARY HACK! this does not scale.
-						// Find a way to get PCRE regexes going in the database (postgres seems to use POSIX regexes)
-						.Where(term => Regex.IsMatch(content, term.Regex, RegexOptions.IgnoreCase))
-						.Select(term => new UserIdAndTerm() {
-							DiscordUserId = term.DiscordUserId,
-							Value = term.Display
-						})
-						.ToList();
 
 					if (allTerms.Count > 0) {
 						DiscordGuild guild = discord.Guilds[e.Guild.Id];
@@ -223,19 +224,23 @@ public sealed class Program {
 								await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
 							}
 						}
+						
+						// This is separate because otherwise, a DbConcurrencyException from earlier may re-occur here and prevent an actually useful update.
+						await using (var scope = Host.Services.CreateAsyncScope()) {
+							var dbContext = scope.ServiceProvider.GetRequiredService<HighlightDbContext>();
+							foreach (IGrouping<ulong, string> grouping in termsByUser) {
+								var attachedUser = new HighlightUser() {
+									DiscordUserId = grouping.Key,
+									DiscordGuildId = guild.Id
+								};
 
-						foreach (IGrouping<ulong, string> grouping in termsByUser) {
-							var attachedUser = new HighlightUser() {
-								DiscordUserId = grouping.Key,
-								DiscordGuildId = guild.Id
-							};
-
-							dbContext.Users.Attach(attachedUser);
-							attachedUser.LastActivity = DateTime.UtcNow;
-							attachedUser.LastDM = DateTime.UtcNow;
+								dbContext.Users.Attach(attachedUser);
+								attachedUser.LastActivity = DateTime.UtcNow;
+								attachedUser.LastDM = DateTime.UtcNow;
+							}
+							
+							await dbContext.SaveChangesAsync();
 						}
-
-						await dbContext.SaveChangesAsync();
 					}
 				} catch (Exception ex) {
 					FormattableString errorMessage =
