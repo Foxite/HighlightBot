@@ -4,7 +4,7 @@ CarlBot recently disabled !hl for non-moderators, so here is !hl packed in a sel
 ## Docker deployment
 0. Bot user, as usual. It needs the message content intent. When joining it into a server, make sure it has permissions to read message history in every channel. If a user does not have that permission in any channel, the bot will not DM them for messages said in those channels.
 1. Copy postgres.env.example and highlightbot.env.example and remove the .example suffixes. Add the bot token to the env file, and optionally the webhook where errors should be sent.
-2. If using the docker-compose file, make sure to pick the prod variant because it doesn't publish the database ports. This is useful during testing but a major security risk in production. Alternatively, if you want to use your own database, modify the connection string. (Note that only Postgres works properly right now, adding support for others is easy but requires getting your hands dirty.)
+2. If using the docker-compose file, make sure to pick the prod variant because it doesn't publish the database ports. This is useful during testing but a major security risk in production. Alternatively, if you want to use your own database, modify the connection string.
 3. `docker-compose up`
 
 ## Usage
