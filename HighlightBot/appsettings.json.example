@@ -5,7 +5,6 @@
         }
     },
     "ConnectionStrings": {
-        "Mode": "Postgres",
         "HighlightDbContext": "Host=localhost; Database=highlightbot-data; Port=5432; Username=highlightbot; Password=test123"
     },
     "Discord": {

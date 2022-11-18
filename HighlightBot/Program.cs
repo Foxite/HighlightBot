@@ -14,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace HighlightBot;
 
@@ -72,7 +73,10 @@ public sealed class Program {
 				// If you include this, an exception occurs while disposing it. If the app is crashing, the original exception will be eaten.
 				//isc.AddSingleton(isp => isp.GetRequiredService<DiscordClient>().GetCommandsNext());
 
-				isc.ConfigureDbContext<HighlightDbContext>();
+				isc.AddDbContext<HighlightDbContext>((isp, dbcob) => {
+					ConnectionStringsConfiguration connectionStrings = isp.GetRequiredService<IOptions<ConnectionStringsConfiguration>>().Value;
+					dbcob.UseNpgsql(connectionStrings.HighlightDbContext);
+				});
 
 				isc.AddNotifications().AddDiscord(hbc.Configuration.GetSection("DiscordNotifications"));
 			})
@@ -80,7 +84,8 @@ public sealed class Program {
 
 		Host = host;
 
-		await using (var dbContext = host.Services.GetRequiredService<HighlightDbContext>()) {
+		await using (var scope = Host.Services.CreateAsyncScope()) {
+			var dbContext = scope.ServiceProvider.GetRequiredService<HighlightDbContext>();
 			await dbContext.Database.MigrateAsync();
 		}
 
