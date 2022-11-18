@@ -124,7 +124,7 @@ public sealed class Program {
 				try {
 					List<UserIdAndTerm> allTerms;
 					await using var scope = Host.Services.CreateAsyncScope();
-					var dbContext = Host.Services.GetRequiredService<HighlightDbContext>();
+					var dbContext = scope.ServiceProvider.GetRequiredService<HighlightDbContext>();
 					
 					// Create a "fake" entity object and attach it to EF, then modify it and save the changes.
 					// This allows to update an entity without querying for it in the database.
