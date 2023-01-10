@@ -235,7 +235,6 @@ public sealed class Program {
 								};
 
 								dbContext.Users.Attach(attachedUser);
-								attachedUser.LastActivity = DateTime.UtcNow;
 								attachedUser.LastDM = DateTime.UtcNow;
 							}
 							
