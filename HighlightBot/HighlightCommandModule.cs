@@ -1,104 +1,36 @@
 using System.Text.RegularExpressions;
-using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
-using Microsoft.EntityFrameworkCore;
 
 namespace HighlightBot;
 
 [ModuleLifespan(ModuleLifespan.Transient)]
 public class HighlightCommandModule : BaseCommandModule {
-	public HighlightDbContext DbContext { get; set; }
-
-	protected Task<HighlightUser?> GetUserAsync(CommandContext context) {
-		return DbContext.Users
-			.Include(user => user.Terms)
-			.Include(user => user.IgnoredChannels)
-			.Include(user => user.IgnoredUsers)
-			.FirstOrDefaultAsync(user => user.DiscordGuildId == context.Guild.Id && user.DiscordUserId == context.User.Id);
-	}
-
-	/// <summary>
-	/// Does not save changes, which you might not want to do either.
-	/// </summary>
-	protected async Task<HighlightUser> GetOrCreateUserAsync(CommandContext context) {
-		HighlightUser? user = await GetUserAsync(context);
-		if (user == null) {
-			user = new HighlightUser() {
-				DiscordGuildId = context.Guild.Id,
-				DiscordUserId = context.User.Id,
-				LastActivity = DateTime.UtcNow,
-				Terms = new List<HighlightTerm>(),
-				IgnoredChannels = new List<HighlightUserIgnoredChannel>(),
-				IgnoredUsers = new List<HighlightUserIgnoredUser>()
-			};
-			DbContext.Users.Add(user);
-		}
-
-		return user;
-	}
-
-	private static string GetTermsListForEmbed(HighlightUser user, bool regexes) {
-		List<HighlightTerm> terms = user.Terms.Where(term => term.Display.StartsWith('`') == regexes).ToList();
-		return string.Join("\n", terms.Select(term => term.Display));
-	}
-
-	protected static void AddEmbedOfTrackedTerms(HighlightUser user, DiscordMessageBuilder dmb) {
-		if (user.Terms.Count > 0) {
-			DiscordEmbedBuilder embed = new DiscordEmbedBuilder()
-				.WithTitle("You're currently tracking the following terms")
-				.WithColor(DiscordColor.Yellow);
-
-			string wordsList = GetTermsListForEmbed(user, false);
-			if (wordsList.Length > 0) {
-				embed.AddField("Words", wordsList);
-			}
-
-			string regexesList = GetTermsListForEmbed(user, true);
-			if (regexesList.Length > 0) {
-				embed.AddField("Regexes", regexesList);
-			}
-
-			if (user.IgnoredChannels.Count > 0) {
-				embed.AddField("Ignored Channels", string.Join("\n", user.IgnoredChannels.Select(huic => "<#" + huic.ChannelId + ">")));
-			}
-
-			if (user.IgnoredUsers.Count > 0) {
-				embed.AddField("Ignored Users", string.Join("\n", user.IgnoredUsers.Select(huic => "<@" + huic.IgnoredUserId + ">")));
-			}
-
-			embed.AddField("Ignore bots", user.IgnoreBots ? "Yes" : "No");
-			embed.AddField("Ignore NSFW", user.IgnoreNsfw ? "Yes" : "No");
-
-			embed
-				.AddField("Highlight Delay", user.HighlightDelay.TotalHours >= 1 ? user.HighlightDelay.ToString(@"h\:mm\:ss") : user.HighlightDelay.ToString(@"m\:ss"))
-				.AddField("To add a new regex:", "Surround a term with `/slashes/`");
-
-			dmb
-				.WithEmbed(embed)
-				.WithAllowedMentions(Mentions.None);
-		}
-	}
+	protected CommandSession Session { get; }
 	
+	public HighlightCommandModule(HighlightDbContext dbContext) {
+		Session = new CommandSession(dbContext);
+	}
+
 	[Command("show")]
 	public async Task GetAllHighlights(CommandContext context) {
-		HighlightUser? user = await GetUserAsync(context);
+		HighlightUser? user = await Session.GetUserAsync(context.Guild.Id, context.User.Id);
 		if (user == null || user.Terms.Count == 0) {
 			await context.RespondAsync("You're not tracking any words.");
 		} else {
-			await context.RespondAsync(dmb => AddEmbedOfTrackedTerms(user, dmb));
+			await context.RespondAsync(dmb => Session.AddEmbedOfTrackedTerms(user, dmb));
 		}
 	}
 
 	[Command("clear")]
 	public async Task ClearHighlights(CommandContext context) {
-		HighlightUser? user = await GetUserAsync(context);
+		HighlightUser? user = await Session.GetUserAsync(context.Guild.Id, context.User.Id);
 		if (user == null || user.Terms.Count == 0) {
 			await context.RespondAsync("You're not tracking any words.");
 		} else {
 			user.Terms.Clear();
-			await DbContext.SaveChangesAsync();
+			await Session.SaveChangesAsync();
 			await context.RespondAsync("Deleted all your highlights.");
 		}
 	}
@@ -110,7 +42,7 @@ public class HighlightCommandModule : BaseCommandModule {
 			return;
 		}
 
-		HighlightUser user = await GetOrCreateUserAsync(context);
+		HighlightUser user = await Session.GetOrCreateUserAsync(context.Guild.Id, context.User.Id);
 
 		string[] lines = terms.Split("\n");
 		int added = 0;
@@ -144,15 +76,15 @@ public class HighlightCommandModule : BaseCommandModule {
 			}
 		}
 
-		var regexListLength = GetTermsListForEmbed(user, true).Length;
-		var wordListLength = GetTermsListForEmbed(user, false).Length;
+		var regexListLength = Session.GetTermsListForEmbed(user, true).Length;
+		var wordListLength = Session.GetTermsListForEmbed(user, false).Length;
 		if (regexListLength > 1024 || wordListLength > 1024) {
 			await context.RespondAsync("Error: This would make your list of words/regexes too long, so the changes are not saved.");
 
 			return;
 		}
 
-		await DbContext.SaveChangesAsync();
+		await Session.SaveChangesAsync();
 
 		string message = $"Added {added} highlight{(added == 1 ? "" : "s")}";
 		if (added != lines.Length) {
@@ -161,7 +93,7 @@ public class HighlightCommandModule : BaseCommandModule {
 
 		await context.RespondAsync(dmb => {
 			dmb.WithContent(message);
-			AddEmbedOfTrackedTerms(user, dmb);
+			Session.AddEmbedOfTrackedTerms(user, dmb);
 		});
 	}
 
@@ -172,7 +104,7 @@ public class HighlightCommandModule : BaseCommandModule {
 			return;
 		}
 		
-		HighlightUser? user = await GetUserAsync(context);
+		HighlightUser? user = await Session.GetUserAsync(context.Guild.Id, context.User.Id);
 		if (user == null || user.Terms.Count == 0) {
 			await context.RespondAsync("You're not tracking any words.");
 		} else {
@@ -183,7 +115,7 @@ public class HighlightCommandModule : BaseCommandModule {
 			string content;
 			if (term != null) {
 				user.Terms.Remove(term);
-				await DbContext.SaveChangesAsync();
+				await Session.SaveChangesAsync();
 				content = "Deleted the highlight: " + highlight;
 			} else {
 				content = $"You are not tracking {highlight}.";
@@ -192,7 +124,7 @@ public class HighlightCommandModule : BaseCommandModule {
 				dmb
 					.WithContent(content)
 					.WithAllowedMentions(Mentions.None);
-				AddEmbedOfTrackedTerms(user, dmb);
+				Session.AddEmbedOfTrackedTerms(user, dmb);
 			});
 		}
 	}
@@ -203,9 +135,9 @@ public class HighlightCommandModule : BaseCommandModule {
 			minutes = 0;
 		}
 
-		HighlightUser user = await GetOrCreateUserAsync(context);
+		HighlightUser user = await Session.GetOrCreateUserAsync(context.Guild.Id, context.User.Id);
 		user.HighlightDelay = TimeSpan.FromMinutes(minutes);
-		await DbContext.SaveChangesAsync();
+		await Session.SaveChangesAsync();
 
 		if (user.Terms.Count == 0) {
 			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will notify you if anyone says them and you've been inactive for {minutes} minute{(minutes == 1 ? "" : "s")}.");
@@ -217,13 +149,16 @@ public class HighlightCommandModule : BaseCommandModule {
 
 [Group("ignore")]
 public class IgnoreModule : HighlightCommandModule {
+	public IgnoreModule(HighlightDbContext dbContext) : base(dbContext) {
+	}
+	
 	[Command("bots"), Priority(1)]
 	public async Task IgnoreBots(CommandContext context) {
-		HighlightUser user = await GetOrCreateUserAsync(context);
+		HighlightUser user = await Session.GetOrCreateUserAsync(context.Guild.Id, context.User.Id);
 
 		user.IgnoreBots = !user.IgnoreBots;
 
-		await DbContext.SaveChangesAsync();
+		await Session.SaveChangesAsync();
 
 		if (user.Terms.Count == 0) {
 			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(user.IgnoreBots ? "not notify you" : "now notify you again")} if a bot says them.");
@@ -234,11 +169,11 @@ public class IgnoreModule : HighlightCommandModule {
 
 	[Command("nsfw"), Priority(1)]
 	public async Task IgnoreNsfw(CommandContext context) {
-		HighlightUser user = await GetOrCreateUserAsync(context);
+		HighlightUser user = await Session.GetOrCreateUserAsync(context.Guild.Id, context.User.Id);
 
 		user.IgnoreNsfw = !user.IgnoreNsfw;
 
-		await DbContext.SaveChangesAsync();
+		await Session.SaveChangesAsync();
 
 		if (user.Terms.Count == 0) {
 			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(user.IgnoreNsfw ? "not notify you" : "now notify you again")} anyone says them in an NSFW channel.");
@@ -249,7 +184,7 @@ public class IgnoreModule : HighlightCommandModule {
 
 	[GroupCommand]
 	public async Task IgnoreUser(CommandContext context, DiscordUser user) {
-		HighlightUser hlUser = await GetOrCreateUserAsync(context);
+		HighlightUser hlUser = await Session.GetOrCreateUserAsync(context.Guild.Id, context.User.Id);
 
 		HighlightUserIgnoredUser? existingEntry = hlUser.IgnoredUsers.FirstOrDefault(huiu => huiu.IgnoredUserId == user.Id);
 		if (existingEntry != null) {
@@ -260,7 +195,7 @@ public class IgnoreModule : HighlightCommandModule {
 			});
 		}
 		
-		await DbContext.SaveChangesAsync();
+		await Session.SaveChangesAsync();
 
 		if (hlUser.Terms.Count == 0) {
 			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(existingEntry == null ? "not notify you" : "now notify you again")} if {user.Username} says them.");
@@ -271,7 +206,7 @@ public class IgnoreModule : HighlightCommandModule {
 
 	[GroupCommand]
 	public async Task IgnoreChannel(CommandContext context, DiscordChannel channel) {
-		HighlightUser user = await GetOrCreateUserAsync(context);
+		HighlightUser user = await Session.GetOrCreateUserAsync(context.Guild.Id, context.User.Id);
 
 		HighlightUserIgnoredChannel? existingEntry = user.IgnoredChannels.FirstOrDefault(huic => huic.ChannelId == channel.Id);
 		if (existingEntry != null) {
@@ -282,7 +217,7 @@ public class IgnoreModule : HighlightCommandModule {
 			});
 		}
 		
-		await DbContext.SaveChangesAsync();
+		await Session.SaveChangesAsync();
 
 		if (user.Terms.Count == 0) {
 			await context.RespondAsync($"You're not tracking any words yet, but when you add them, I will {(existingEntry == null ? "not notify you" : "now notify you again")} if someone says them in {channel.Mention}");
