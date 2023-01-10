@@ -38,7 +38,7 @@ public sealed class Program {
 		using IHost host = CreateHostBuilder(args)
 			.ConfigureLogging((hbc, builder) => {
 				IsDevelopment = hbc.HostingEnvironment.IsDevelopment();
-					
+				
 				builder.AddExceptionDemystifyer();
 			})
 			.ConfigureServices((hbc, isc) => {
@@ -102,6 +102,8 @@ public sealed class Program {
 		slashCommands.RegisterCommands<SlashIgnoreModule>();
 
 		commands.CommandErrored += (_, eventArgs) => {
+			Host.Services.GetRequiredService<ILogger<Program>>().LogError(eventArgs.Exception, "Error executing classic command");
+
 			return eventArgs.Exception switch {
 				CommandNotFoundException => eventArgs.Context.RespondAsync("Unknown command."),
 				ChecksFailedException => eventArgs.Context.RespondAsync("Checks failed 🙁"),
@@ -113,6 +115,16 @@ public sealed class Program {
 		discord.MessageCreated += OnMessageCreatedAsync;
 
 		discord.ClientErrored += (_, eventArgs) => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
+
+		slashCommands.SlashCommandErrored += (_, eventArgs) => {
+			Host.Services.GetRequiredService<ILogger<Program>>().LogError(eventArgs.Exception, "Error executing slash command");
+			
+			return eventArgs.Exception switch {
+				SlashExecutionChecksFailedException => eventArgs.Context.CreateResponseAsync("Checks failed 🙁"),
+				ArgumentException { Message: "Could not find a suitable overload for the command." } => eventArgs.Context.CreateResponseAsync("Invalid arguments."),
+				_ => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync("Exception while executing command", eventArgs.Exception).ContinueWith(t => eventArgs.Context.CreateResponseAsync("Internal error; devs notified."))
+			};
+		};
 
 		await discord.ConnectAsync();
 
