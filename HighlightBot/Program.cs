@@ -45,7 +45,7 @@ public sealed class Program {
 				isc.AddSingleton(isp => {
 					var clientConfig = new DiscordConfiguration {
 						Token = hbc.Configuration.GetSection("Discord").GetValue<string>("Token"),
-						Intents = DiscordIntents.GuildMessages | DiscordIntents.Guilds,
+						Intents = DiscordIntents.GuildMessages | DiscordIntents.Guilds | DiscordIntents.MessageContents,
 						LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 						MinimumLogLevel = LogLevel.Information,
 						AlwaysCacheMembers = false
