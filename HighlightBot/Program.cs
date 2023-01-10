@@ -19,7 +19,8 @@ using Microsoft.Extensions.Options;
 namespace HighlightBot;
 
 public sealed class Program {
-	public static IHost Host { get; set; }
+	public static IHost Host { get; private set; }
+	public static bool IsDevelopment { get; private set; }
 
 	private static IHostBuilder CreateHostBuilder(string[] args) =>
 		Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder(args)
@@ -35,7 +36,9 @@ public sealed class Program {
 
 	private static async Task Main(string[] args) {
 		using IHost host = CreateHostBuilder(args)
-			.ConfigureLogging((_, builder) => {
+			.ConfigureLogging((hbc, builder) => {
+				IsDevelopment = hbc.HostingEnvironment.IsDevelopment();
+					
 				builder.AddExceptionDemystifyer();
 			})
 			.ConfigureServices((hbc, isc) => {
@@ -145,7 +148,7 @@ public sealed class Program {
 
 						string content = e.Message.Content.ToLowerInvariant();
 						DateTime currentTime = DateTime.UtcNow;
-						DateTime fiveMinutesAgo = DateTime.UtcNow - TimeSpan.FromMinutes(5);
+						DateTime fiveMinutesAgo = DateTime.UtcNow - TimeSpan.FromMinutes(IsDevelopment ? 0 : 5);
 						allTerms = dbContext.Terms
 							.Where(term =>
 								term.User.DiscordGuildId == e.Guild.Id &&
