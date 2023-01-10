@@ -116,8 +116,6 @@ public sealed class Program {
 		await host.RunAsync();
 	}
 
-	private static readonly object m_DatabaseLock = new();
-
 	private static Task OnMessageCreatedAsync(DiscordClient discord, MessageCreateEventArgs e) {
 		if (e.Guild != null) {
 			_ = Task.Run(async () => {
