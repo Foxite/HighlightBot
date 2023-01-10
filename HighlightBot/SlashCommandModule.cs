@@ -4,16 +4,15 @@ using DSharpPlus.Entities;
 
 namespace HighlightBot;
 
-[SlashModuleLifespan(SlashModuleLifespan.Transient)]
+[SlashModuleLifespan(SlashModuleLifespan.Scoped)]
 public class SlashCommandModule : ApplicationCommandModule {
-	protected CommandSession Session { get; }
-	protected InteractionHighlightCommandContext Hcc { get; private set; } = null!;
+	public HighlightDbContext DbContext { get; set; } = null!;
 	
-	public SlashCommandModule(HighlightDbContext dbContext) {
-		Session = new CommandSession(dbContext);
-	}
+	protected CommandSession Session { get; private set; } = null!;
+	protected InteractionHighlightCommandContext Hcc { get; private set; } = null!;
 
 	public override Task<bool> BeforeSlashExecutionAsync(InteractionContext ctx) {
+		Session = new CommandSession(DbContext);
 		Hcc = new InteractionHighlightCommandContext(ctx);
 		return Task.FromResult(true);
 	}
@@ -45,10 +44,8 @@ public class SlashCommandModule : ApplicationCommandModule {
 }
 
 [SlashCommandGroup("ignore", "Ignore something.")]
+[SlashModuleLifespan(SlashModuleLifespan.Scoped)]
 public class SlashIgnoreModule : SlashCommandModule {
-	public SlashIgnoreModule(HighlightDbContext dbContext) : base(dbContext) {
-	}
-	
 	[SlashCommand("bots", "Ignore all bots."), Priority(1)]
 	public Task IgnoreBots(InteractionContext context, [Option("ignore", "Ignore bots?", true)] bool ignore) {
 		return Session.IgnoreBots(Hcc, ignore);

@@ -6,14 +6,13 @@ namespace HighlightBot;
 
 [ModuleLifespan(ModuleLifespan.Transient)]
 public class HighlightCommandModule : BaseCommandModule {
-	protected CommandSession Session { get; }
+	public HighlightDbContext DbContext { get; set; } = null!;
+	
+	protected CommandSession Session { get; private set; } = null!;
 	protected ClassicHighlightCommandContext Hcc { get; private set; } = null!;
 	
-	public HighlightCommandModule(HighlightDbContext dbContext) {
-		Session = new CommandSession(dbContext);
-	}
-
 	public override Task BeforeExecutionAsync(CommandContext ctx) {
+		Session = new CommandSession(DbContext);
 		Hcc = new ClassicHighlightCommandContext(ctx);
 		return Task.CompletedTask;
 	}
@@ -53,10 +52,8 @@ public class HighlightCommandModule : BaseCommandModule {
 }
 
 [Group("ignore")]
+[ModuleLifespan(ModuleLifespan.Transient)]
 public class IgnoreModule : HighlightCommandModule {
-	public IgnoreModule(HighlightDbContext dbContext) : base(dbContext) {
-	}
-	
 	[Command("bots"), Priority(1)]
 	public Task IgnoreBots(CommandContext context, bool? ignore) {
 		return Session.IgnoreBots(Hcc, ignore);
