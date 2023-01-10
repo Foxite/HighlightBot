@@ -39,20 +39,25 @@ public class HighlightCommandModule : BaseCommandModule {
 		return user;
 	}
 
+	private static string GetTermsListForEmbed(HighlightUser user, bool regexes) {
+		List<HighlightTerm> terms = user.Terms.Where(term => term.Display.StartsWith('`') == regexes).ToList();
+		return string.Join("\n", terms.Select(term => term.Display));
+	}
+
 	protected static void AddEmbedOfTrackedTerms(HighlightUser user, DiscordMessageBuilder dmb) {
 		if (user.Terms.Count > 0) {
 			DiscordEmbedBuilder embed = new DiscordEmbedBuilder()
 				.WithTitle("You're currently tracking the following terms")
 				.WithColor(DiscordColor.Yellow);
 
-			List<HighlightTerm> words = user.Terms.Where(term => !term.Display.StartsWith('`')).ToList();
-			List<HighlightTerm> regexes = user.Terms.Where(term => term.Display.StartsWith('`')).ToList();
-			if (words.Count > 0) {
-				embed.AddField("Words", string.Join("\n", words.Select(term => term.Display)));
+			string wordsList = GetTermsListForEmbed(user, false);
+			if (wordsList.Length > 0) {
+				embed.AddField("Words", wordsList);
 			}
 
-			if (regexes.Count > 0) {
-				embed.AddField("Regexes", string.Join("\n", regexes.Select(term => term.Display)));
+			string regexesList = GetTermsListForEmbed(user, true);
+			if (regexesList.Length > 0) {
+				embed.AddField("Regexes", regexesList);
 			}
 
 			if (user.IgnoredChannels.Count > 0) {
@@ -137,6 +142,14 @@ public class HighlightCommandModule : BaseCommandModule {
 					Regex = pattern
 				});
 			}
+		}
+
+		var regexListLength = GetTermsListForEmbed(user, true).Length;
+		var wordListLength = GetTermsListForEmbed(user, false).Length;
+		if (regexListLength > 1024 || wordListLength > 1024) {
+			await context.RespondAsync("Error: This would make your list of words/regexes too long, so the changes are not saved.");
+
+			return;
 		}
 
 		await DbContext.SaveChangesAsync();
