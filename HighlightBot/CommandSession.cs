@@ -14,11 +14,11 @@ public class CommandSession {
 		m_DbContext = dbContext;
 	}
 
-	public Task SaveChangesAsync() {
+	private Task SaveChangesAsync() {
 		return m_DbContext.SaveChangesAsync();
 	}
 
-	public Task<HighlightUser?> GetUserAsync(HighlightCommandContext commandContext) {
+	private Task<HighlightUser?> GetUserAsync(HighlightCommandContext commandContext) {
 		return m_DbContext.Users
 			.Include(user => user.Terms)
 			.Include(user => user.IgnoredChannels)
@@ -29,7 +29,7 @@ public class CommandSession {
 	/// <summary>
 	/// Does not save changes, which you might not want to do either.
 	/// </summary>
-	public async Task<HighlightUser> GetOrCreateUserAsync(HighlightCommandContext commandContext) {
+	private async Task<HighlightUser> GetOrCreateUserAsync(HighlightCommandContext commandContext) {
 		HighlightUser? user = await GetUserAsync(commandContext);
 		if (user == null) {
 			user = new HighlightUser() {
@@ -46,12 +46,12 @@ public class CommandSession {
 		return user;
 	}
 
-	public string GetTermsListForEmbed(HighlightUser user, bool regexes) {
+	private string GetTermsListForEmbed(HighlightUser user, bool regexes) {
 		List<HighlightTerm> terms = user.Terms.Where(term => term.Display.StartsWith('`') == regexes).ToList();
 		return string.Join("\n", terms.Select(term => term.Display));
 	}
 
-	public void AddEmbedOfTrackedTerms(HighlightUser user, IDiscordMessageBuilder dmb) {
+	private void AddEmbedOfTrackedTerms(HighlightUser user, IDiscordMessageBuilder dmb) {
 		if (user.Terms.Count > 0) {
 			DiscordEmbedBuilder embed = new DiscordEmbedBuilder()
 				.WithTitle("You're currently tracking the following terms")
