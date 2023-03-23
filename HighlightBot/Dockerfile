@@ -9,4 +9,4 @@ RUN dotnet publish "HighlightBot.csproj" -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/runtime:6.0-alpine AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-ENTRYPOINT ["dotnet", "HighlightBot.dll"]
+ENTRYPOINT ["./HighlightBot"]
