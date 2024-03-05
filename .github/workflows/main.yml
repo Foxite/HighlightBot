@@ -17,8 +17,6 @@ jobs:
       uses: elgohr/Publish-Docker-Github-Action@3.04
       env:
         HIGHLIGHTBOT_VERSION: ${{ steps.compute-version-code.outputs.release-version }}
-    - name: Publish Docker
-      uses: elgohr/Publish-Docker-Github-Action@3.04
       with:
         name: highlight-bot
         context: HighlightBot
