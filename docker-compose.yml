@@ -1,0 +1,31 @@
+version: "3.3"
+
+services:
+  database:
+    image: "postgres:13.3"
+    environment:
+      POSTGRES_USER: highlightbot
+      POSTGRES_PASSWORD: test123
+      POSTGRES_DB: highlightbot-data
+    ports:
+      - "5432:5432"
+    networks:
+      - highlightbot-network
+    volumes:
+      - database-data:/var/lib/postgresql/data/ # persist data even if container shuts down
+  bot:
+    build: HighlightBot
+    environment:
+      HIGHLIGHT_Discord__Token: "try not to commit this line."
+      HIGHLIGHT_DiscordNotifications__WebhookUrl: ""
+      HIGHLIGHT_ConnectionStrings__HighlightDbContext: "Host=database; Database=highlightbot-data; Port=5432; Username=highlightbot; Password=test123"
+    depends_on:
+      - database
+    networks:
+      - highlightbot-network
+
+networks:
+  highlightbot-network:
+
+volumes:
+  database-data: # named volumes can be managed easier using docker-compose

@@ -17,6 +17,17 @@ public class HighlightCommandModule : BaseCommandModule {
 		return Task.CompletedTask;
 	}
 
+	[Command("version")]
+	public Task ShowVersion(CommandContext context) {
+		string? response = Environment.GetEnvironmentVariable("HIGHLIGHTBOT_VERSION");
+
+		if (string.IsNullOrWhiteSpace(response)) {
+			response = "Unset";
+		}
+
+		return context.RespondAsync(response);
+	}
+
 	[Command("show")]
 	public Task GetAllHighlights(CommandContext context) {
 		return Session.GetAllHighlights(Hcc);

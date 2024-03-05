@@ -17,6 +17,17 @@ public class SlashCommandModule : ApplicationCommandModule {
 		return Task.FromResult(true);
 	}
 
+	[SlashCommand("version", "Get the bot's version.")]
+	public Task ShowVersion(InteractionContext context) {
+		string? response = Environment.GetEnvironmentVariable("HIGHLIGHTBOT_VERSION");
+
+		if (string.IsNullOrWhiteSpace(response)) {
+			response = "Unset";
+		}
+
+		return context.CreateResponseAsync(response);
+	}
+
 	[SlashCommand("show", "Show all your highlights.")]
 	public Task GetAllHighlights(InteractionContext context) {
 		return Session.GetAllHighlights(Hcc);
