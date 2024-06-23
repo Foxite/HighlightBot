@@ -111,21 +111,42 @@ public class CommandSession {
 	}
 
 	public async Task AddHighlight(HighlightCommandContext hcc, ICollection<string> terms) {
+		static bool IsRegex(string term, out string regex, out string suffix) {
+			if (term.StartsWith("/")) {
+				if (term.EndsWith("/")) {
+					suffix = "";
+					regex = term[1..^1];
+					return true;
+				} else if (term.EndsWith("/c")) {
+					suffix = "c";
+					regex = term[1..^2];
+					return true;
+				}
+			}
+			
+			suffix = "";
+			regex = term;
+			return false;
+		}
+		
 		HighlightUser user = await GetOrCreateUserAsync(hcc);
 
 		int added = 0;
 		foreach (string term in terms) {
-			string pattern;
 			string display;
-			if (term.StartsWith('/') && term.EndsWith('/')) {
-				pattern = term[1..^1];
-
+			RegexOptions regexOptions = RegexOptions.IgnoreCase;
+			
+			if (IsRegex(term, out string pattern, out string suffix)) {
 				if (!Util.IsValidRegex(pattern)) {
 					await hcc.RespondAsync("Invalid regex 🙁");
 					return;
 				}
 				
 				display = $"`{term}`";
+
+				if (suffix == "c") {
+					regexOptions = RegexOptions.None;
+				}
 			} else {
 				pattern = $@"\b{Regex.Escape(term.ToLower())}\b";
 
@@ -139,7 +160,8 @@ public class CommandSession {
 				added++;
 				user.Terms.Add(new HighlightTerm() {
 					Display = display,
-					Regex = pattern
+					Regex = pattern,
+					RegexOptions = regexOptions,
 				});
 			}
 		}

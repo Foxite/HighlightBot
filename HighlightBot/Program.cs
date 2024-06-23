@@ -176,12 +176,11 @@ public sealed class Program {
 								term.User.DiscordUserId,
 								term.User.DiscordGuildId,
 								term.Regex,
-								term.Display
+								term.Display,
+								term.RegexOptions,
 							})
 							.AsEnumerable()
-							// TODO TEMPORARY HACK! this does not scale.
-							// Find a way to get PCRE regexes going in the database (postgres seems to use POSIX regexes)
-							.Where(term => Regex.IsMatch(content, term.Regex, RegexOptions.IgnoreCase))
+							.Where(term => Regex.IsMatch(content, term.Regex, term.RegexOptions))
 							.Select(term => new UserIdAndTerm() {
 								DiscordUserId = term.DiscordUserId,
 								Value = term.Display

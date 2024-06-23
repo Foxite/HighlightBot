@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 
 namespace HighlightBot;
@@ -33,5 +34,9 @@ public class HighlightDbContext : DbContext {
 		modelBuilder
 			.Entity<HighlightUser>()
 			.HasKey(nameof(HighlightUser.DiscordGuildId), nameof(HighlightUser.DiscordUserId));
+
+		modelBuilder.Entity<HighlightTerm>()
+			.Property(term => term.RegexOptions)
+			.HasDefaultValue(RegexOptions.IgnoreCase);
 	}
 }

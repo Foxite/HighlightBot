@@ -8,4 +8,5 @@ public class HighlightTerm {
 	
 	public string Regex { get; set; }
 	public string Display { get; set; }
+	public RegexOptions RegexOptions { get; set; }
 }
