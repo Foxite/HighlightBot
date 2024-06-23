@@ -158,7 +158,7 @@ public sealed class Program {
 							// If it happens because the database was actually concurrently, we also don't care.
 						}
 
-						string content = e.Message.Content.ToLowerInvariant();
+						string content = e.Message.Content;
 						DateTime currentTime = DateTime.UtcNow;
 						DateTime fiveMinutesAgo = DateTime.UtcNow - TimeSpan.FromMinutes(IsDevelopment ? 0 : 5);
 						allTerms = dbContext.Terms
@@ -168,7 +168,7 @@ public sealed class Program {
 								(!(e.Author.IsBot && term.User.IgnoreBots)) &&
 								(!(e.Channel.IsNSFW && term.User.IgnoreNsfw)) &&
 								term.User.LastActivity + term.User.HighlightDelay < currentTime &&
-								term.User.LastDM < fiveMinutesAgo &&
+								//term.User.LastDM < fiveMinutesAgo &&
 								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id) &&
 								!term.User.IgnoredUsers.Any(huiu => huiu.IgnoredUserId == e.Author.Id)
 							)
@@ -177,10 +177,10 @@ public sealed class Program {
 								term.User.DiscordGuildId,
 								term.Regex,
 								term.Display,
-								term.RegexOptions,
+								term.IsCaseSensitive,
 							})
 							.AsEnumerable()
-							.Where(term => Regex.IsMatch(content, term.Regex, term.RegexOptions))
+							.Where(term => Regex.IsMatch(content, term.Regex, term.IsCaseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase))
 							.Select(term => new UserIdAndTerm() {
 								DiscordUserId = term.DiscordUserId,
 								Value = term.Display

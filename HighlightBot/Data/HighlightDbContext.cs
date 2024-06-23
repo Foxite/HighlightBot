@@ -36,7 +36,7 @@ public class HighlightDbContext : DbContext {
 			.HasKey(nameof(HighlightUser.DiscordGuildId), nameof(HighlightUser.DiscordUserId));
 
 		modelBuilder.Entity<HighlightTerm>()
-			.Property(term => term.RegexOptions)
-			.HasDefaultValue(RegexOptions.IgnoreCase);
+			.Property(term => term.IsCaseSensitive)
+			.HasDefaultValue(false);
 	}
 }

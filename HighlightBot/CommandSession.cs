@@ -109,59 +109,52 @@ public class CommandSession {
 			await hcc.RespondAsync("Deleted all your highlights.");
 		}
 	}
+	
+	private static bool ParseRegex(string term, out string regex, out bool isCaseSensitive) {
+		if (term.StartsWith("/")) {
+			if (term.EndsWith("/")) {
+				isCaseSensitive = false;
+				regex = term[1..^1];
+				return true;
+			} else if (term.EndsWith("/c")) {
+				isCaseSensitive = true;
+				regex = term[1..^2];
+				return true;
+			}
+		}
+			
+		isCaseSensitive = false;
+		regex = $@"\b{Regex.Escape(term.ToLower())}\b";
+		return false;
+	}
 
 	public async Task AddHighlight(HighlightCommandContext hcc, ICollection<string> terms) {
-		static bool IsRegex(string term, out string regex, out string suffix) {
-			if (term.StartsWith("/")) {
-				if (term.EndsWith("/")) {
-					suffix = "";
-					regex = term[1..^1];
-					return true;
-				} else if (term.EndsWith("/c")) {
-					suffix = "c";
-					regex = term[1..^2];
-					return true;
-				}
-			}
-			
-			suffix = "";
-			regex = term;
-			return false;
-		}
-		
 		HighlightUser user = await GetOrCreateUserAsync(hcc);
 
 		int added = 0;
 		foreach (string term in terms) {
 			string display;
-			RegexOptions regexOptions = RegexOptions.IgnoreCase;
-			
-			if (IsRegex(term, out string pattern, out string suffix)) {
+			if (ParseRegex(term, out string pattern, out bool isCaseSensitive)) {
 				if (!Util.IsValidRegex(pattern)) {
 					await hcc.RespondAsync("Invalid regex 🙁");
 					return;
 				}
 				
 				display = $"`{term}`";
-
-				if (suffix == "c") {
-					regexOptions = RegexOptions.None;
-				}
 			} else {
-				pattern = $@"\b{Regex.Escape(term.ToLower())}\b";
-
 				if (!Util.IsValidRegex(pattern)) {
 					throw new Exception("Escaped pattern is not valid: " + pattern);
 				}
 				
 				display = term;
 			}
+			
 			if (!user.Terms.Any(t => t.Regex == pattern)) {
 				added++;
 				user.Terms.Add(new HighlightTerm() {
 					Display = display,
 					Regex = pattern,
-					RegexOptions = regexOptions,
+					IsCaseSensitive = isCaseSensitive,
 				});
 			}
 		}
@@ -192,10 +185,8 @@ public class CommandSession {
 		if (user == null || user.Terms.Count == 0) {
 			await hcc.RespondAsync("You're not tracking any words.");
 		} else {
-			if (highlight.StartsWith('/') && highlight.EndsWith('/')) {
-				highlight = $"`{highlight}`";
-			}
-			HighlightTerm? term = user.Terms.FirstOrDefault(term => term.Display == highlight);
+			ParseRegex(highlight, out string pattern, out bool isCaseSensitive);
+			HighlightTerm? term = user.Terms.FirstOrDefault(term => term.Regex == pattern && term.IsCaseSensitive == isCaseSensitive);
 			string content;
 			if (term != null) {
 				user.Terms.Remove(term);
