@@ -1,10 +1,12 @@
 using DSharpPlus.SlashCommands;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
+using DSharpPlus.SlashCommands.Attributes;
 
 namespace HighlightBot;
 
 [SlashModuleLifespan(SlashModuleLifespan.Scoped)]
+[SlashRequireGuild]
 public class SlashCommandModule : ApplicationCommandModule {
 	public HighlightDbContext DbContext { get; set; } = null!;
 	
@@ -56,6 +58,7 @@ public class SlashCommandModule : ApplicationCommandModule {
 
 [SlashCommandGroup("ignore", "Ignore something.")]
 [SlashModuleLifespan(SlashModuleLifespan.Scoped)]
+[SlashRequireGuild]
 public class SlashIgnoreModule : SlashCommandModule {
 	[SlashCommand("bots", "Ignore all bots."), Priority(1)]
 	public Task IgnoreBots(InteractionContext context, [Option("ignore", "Ignore bots?", true)] bool ignore) {

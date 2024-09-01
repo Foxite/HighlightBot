@@ -5,6 +5,7 @@ using DSharpPlus.Entities;
 namespace HighlightBot;
 
 [ModuleLifespan(ModuleLifespan.Transient)]
+[RequireGuild]
 public class HighlightCommandModule : BaseCommandModule {
 	public HighlightDbContext DbContext { get; set; } = null!;
 	
@@ -64,6 +65,7 @@ public class HighlightCommandModule : BaseCommandModule {
 
 [Group("ignore")]
 [ModuleLifespan(ModuleLifespan.Transient)]
+[RequireGuild]
 public class IgnoreModule : HighlightCommandModule {
 	[Command("bots"), Priority(1)]
 	public Task IgnoreBots(CommandContext context, bool? ignore) {
