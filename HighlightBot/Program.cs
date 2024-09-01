@@ -118,7 +118,7 @@ channel: {e.Channel.Id} ({e.Channel.Name}) <#{e.Channel.Id}>
 
 			return eventArgs.Exception switch {
 				CommandNotFoundException => eventArgs.Context.RespondAsync("Unknown command."),
-				ChecksFailedException => eventArgs.Context.RespondAsync("Checks failed 🙁"),
+				ChecksFailedException => eventArgs.Context.RespondAsync("All commands must be used within a server."),
 				ArgumentException { Message: "Could not find a suitable overload for the command." } => eventArgs.Context.RespondAsync("Invalid arguments."),
 				_ => ReportCommandError(eventArgs.Context, eventArgs.Exception),
 			};
@@ -144,7 +144,7 @@ channel: {e.Channel.Id} ({e.Channel.Name}) <#{e.Channel.Id}>
 			Host.Services.GetRequiredService<ILogger<Program>>().LogError(eventArgs.Exception, "Error executing slash command");
 			
 			return eventArgs.Exception switch {
-				SlashExecutionChecksFailedException => eventArgs.Context.CreateResponseAsync("Checks failed 🙁"),
+				SlashExecutionChecksFailedException => eventArgs.Context.CreateResponseAsync("All commands must be used within a server."),
 				ArgumentException { Message: "Could not find a suitable overload for the command." } => eventArgs.Context.CreateResponseAsync("Invalid arguments."),
 				_ => ReportSlashCommandError(eventArgs.Context, eventArgs.Exception),
 			};
