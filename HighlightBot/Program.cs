@@ -100,6 +100,18 @@ public sealed class Program {
 		var slashCommands = discord.GetSlashCommands();
 		slashCommands.RegisterCommands<SlashCommandModule>();
 		slashCommands.RegisterCommands<SlashIgnoreModule>();
+		
+		async Task ReportCommandError(CommandContext e, Exception exception) {
+			FormattableString errorMessage =
+				@$"Exception while executing classic command {e.Command?.Name}
+user: {e.User.Id} ({e.User.Username}#{e.User.Discriminator}), bot: {e.User.IsBot}
+message: {e.Message.Id} ({e.Message.JumpLink}), type: {e.Message.MessageType?.ToString() ?? "(null)"}, webhook: {e.Message.WebhookMessage}
+channel: {e.Channel.Id} ({e.Channel.Name}) <#{e.Channel.Id}>
+{(e.Channel.Guild != null ? $"guild: {e.Channel.Guild.Id} ({e.Channel.Guild.Name})" : "")}";
+			Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(exception, errorMessage);
+			await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, exception.Demystify());
+			await e.RespondAsync("Internal error; devs notified.");
+		}
 
 		commands.CommandErrored += (_, eventArgs) => {
 			Host.Services.GetRequiredService<ILogger<Program>>().LogError(eventArgs.Exception, "Error executing classic command");
@@ -108,13 +120,25 @@ public sealed class Program {
 				CommandNotFoundException => eventArgs.Context.RespondAsync("Unknown command."),
 				ChecksFailedException => eventArgs.Context.RespondAsync("Checks failed 🙁"),
 				ArgumentException { Message: "Could not find a suitable overload for the command." } => eventArgs.Context.RespondAsync("Invalid arguments."),
-				_ => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync("Exception while executing command", eventArgs.Exception).ContinueWith(t => eventArgs.Context.RespondAsync("Internal error; devs notified."))
+				_ => ReportCommandError(eventArgs.Context, eventArgs.Exception),
 			};
 		};
 
 		discord.MessageCreated += OnMessageCreatedAsync;
 
-		discord.ClientErrored += (_, eventArgs) => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
+		discord.ClientErrored += (_, eventArgs) => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Exception in {eventArgs.EventName}\nFurther details unknown", eventArgs.Exception);
+
+		async Task ReportSlashCommandError(InteractionContext e, Exception exception) {
+			FormattableString errorMessage =
+				@$"Exception while executing slash command {e.QualifiedName}
+user: {e.User.Id} ({e.User.Username}#{e.User.Discriminator}), bot: {e.User.IsBot}
+interaction id: {e.Interaction.Id}
+channel: {e.Channel.Id} ({e.Channel.Name}) <#{e.Channel.Id}>
+{(e.Channel.Guild != null ? $"guild: {e.Channel.Guild.Id} ({e.Channel.Guild.Name})" : "")}";
+			Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(exception, errorMessage);
+			await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, exception.Demystify());
+			await e.CreateResponseAsync("Internal error; devs notified.");
+		}
 
 		slashCommands.SlashCommandErrored += (_, eventArgs) => {
 			Host.Services.GetRequiredService<ILogger<Program>>().LogError(eventArgs.Exception, "Error executing slash command");
@@ -122,7 +146,7 @@ public sealed class Program {
 			return eventArgs.Exception switch {
 				SlashExecutionChecksFailedException => eventArgs.Context.CreateResponseAsync("Checks failed 🙁"),
 				ArgumentException { Message: "Could not find a suitable overload for the command." } => eventArgs.Context.CreateResponseAsync("Invalid arguments."),
-				_ => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync("Exception while executing command", eventArgs.Exception).ContinueWith(t => eventArgs.Context.CreateResponseAsync("Internal error; devs notified."))
+				_ => ReportSlashCommandError(eventArgs.Context, eventArgs.Exception),
 			};
 		};
 
@@ -256,10 +280,10 @@ public sealed class Program {
 				} catch (Exception ex) {
 					FormattableString errorMessage =
 						@$"Exception in OnMessageCreated
-{e.Author.Id} ({e.Author.Username}#{e.Author.Discriminator}), bot: {e.Author.IsBot}
+user: {e.Author.Id} ({e.Author.Username}#{e.Author.Discriminator}), bot: {e.Author.IsBot}
 message: {e.Message.Id} ({e.Message.JumpLink}), type: {e.Message.MessageType?.ToString() ?? "(null)"}, webhook: {e.Message.WebhookMessage}
-channel {e.Channel.Id} ({e.Channel.Name})\n
-{(e.Channel.Guild != null ? $"guild {e.Channel.Guild.Id} ({e.Channel.Guild.Name})" : "")}";
+channel: {e.Channel.Id} ({e.Channel.Name})\n
+{(e.Channel.Guild != null ? $"guild: {e.Channel.Guild.Id} ({e.Channel.Guild.Name})" : "")}";
 					Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, errorMessage);
 					await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
 				}
