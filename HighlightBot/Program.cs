@@ -192,7 +192,7 @@ channel: {e.Channel.Id} ({e.Channel.Name}) <#{e.Channel.Id}>
 								(!(e.Author.IsBot && term.User.IgnoreBots)) &&
 								(!(e.Channel.IsNSFW && term.User.IgnoreNsfw)) &&
 								term.User.LastActivity + term.User.HighlightDelay < currentTime &&
-								//term.User.LastDM < fiveMinutesAgo &&
+								term.User.LastDM < fiveMinutesAgo &&
 								!term.User.IgnoredChannels.Any(huic => huic.ChannelId == e.Channel.Id) &&
 								!term.User.IgnoredUsers.Any(huiu => huiu.IgnoredUserId == e.Author.Id)
 							)
