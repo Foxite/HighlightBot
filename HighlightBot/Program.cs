@@ -222,7 +222,7 @@ channel: {e.Channel.Id} ({e.Channel.Name}) <#{e.Channel.Id}>
 								Name = (e.Author as DiscordMember)?.DisplayName ?? e.Author.Username
 							},
 							Color = new Optional<DiscordColor>(DiscordColor.Yellow),
-							Description = string.Join('\n', lastMessages.Backwards().Select(message => $"{Formatter.Bold($"[{message.CreationTimestamp.ToUniversalTime():T}] {Formatter.Sanitize((message.Author as DiscordMember)?.DisplayName ?? message.Author.Username)}:")} {message.Content.Ellipsis(500)}")),
+							Description = string.Join('\n', lastMessages.Backwards().Select(message => $"{Formatter.Bold($"[{Formatter.Timestamp(message.CreationTimestamp, TimestampFormat.LongTime)}] {Formatter.Sanitize((message.Author as DiscordMember)?.DisplayName ?? message.Author.Username)}:")} {message.Content.Ellipsis(500)}")),
 							Timestamp = DateTimeOffset.UtcNow,
 						};
 						notificationEmbed = notificationEmbed
