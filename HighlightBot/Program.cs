@@ -222,7 +222,7 @@ channel: {e.Channel.Id} ({e.Channel.Name}) <#{e.Channel.Id}>
 								Name = (e.Author as DiscordMember)?.DisplayName ?? e.Author.Username
 							},
 							Color = new Optional<DiscordColor>(DiscordColor.Yellow),
-							Description = string.Join('\n', lastMessages.Backwards().Select(message => $"{Formatter.Bold($"[{message.CreationTimestamp.ToUniversalTime():T}] {(message.Author as DiscordMember)?.DisplayName ?? message.Author.Username}:")} {message.Content.Ellipsis(500)}")),
+							Description = string.Join('\n', lastMessages.Backwards().Select(message => $"{Formatter.Bold($"[{message.CreationTimestamp.ToUniversalTime():T}] {Formatter.Sanitize((message.Author as DiscordMember)?.DisplayName ?? message.Author.Username)}:")} {message.Content.Ellipsis(500)}")),
 							Timestamp = DateTimeOffset.UtcNow,
 						};
 						notificationEmbed = notificationEmbed
@@ -244,7 +244,7 @@ channel: {e.Channel.Id} ({e.Channel.Name}) <#{e.Channel.Id}>
 
 								List<string> terms = grouping.ToList();
 								var discordMessageBuilder = new DiscordMessageBuilder() {
-									Content = $"In {Formatter.Bold(guild.Name)} {e.Channel.Mention}, you were mentioned with the highlighted word{(terms.Count > 1 ? "s" : "")} {Util.JoinOxfordComma(terms)}",
+									Content = $"In {Formatter.Bold(Formatter.Sanitize(guild.Name))} {e.Channel.Mention}, you were mentioned with the highlighted word{(terms.Count > 1 ? "s" : "")} {Util.JoinOxfordComma(terms)}",
 									Embed = notificationEmbed
 								};
 								await target.SendMessageAsync(discordMessageBuilder);
